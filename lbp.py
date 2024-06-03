@@ -1,14 +1,6 @@
-import os
 from dataclasses import dataclass
-from typing import List
 
-import cv2
 import numpy as np
-
-RANDOM_SEED = 42
-
-np.random.seed(RANDOM_SEED)
-
 
 @dataclass
 class ImageData:
@@ -46,62 +38,25 @@ def calculate_lbp_hist(lbp_image: np.ndarray) -> np.ndarray:
     return hist
 
 
-def load_images(root: str, category: List[str], limit: int = 0) -> List[ImageData]:
-    data_list = []
-    print("== Loading Image")
-    num_class = len(category)
-    for i, c in enumerate(category):
-        path = os.path.join(root, c)
-        for j, f in enumerate(os.listdir(path)):
-            if f.endswith(".jpg"):
-                print(f"-- Processing Image {f} with label {i}")
-                image = cv2.imread(os.path.join(path, f), cv2.IMREAD_GRAYSCALE)
-                lbp_image = calculate_lbp(image=image)
-                hist = calculate_lbp_hist(lbp_image=lbp_image)
-                data_list.append(ImageData(image=image, label=i, lbp=lbp_image, lbp_vector=hist))
-            if limit != 0 and j >= limit / num_class:
-                break
-
-    return data_list
+def calculate_euclid_distance(v1, v2):
+    return np.linalg.norm(v1 - v2)
 
 
-def export(
-        data_list: List[ImageData],
-        limit: int = 0,
-        save_dir: str = './output',
-        split: float = 0.5
-):
-    print("== Export Data")
-    if not os.path.exists(save_dir):
-        os.makedirs(save_dir)
-    np.random.shuffle(np.array(data_list))
-    if limit != 0:
-        data_list = data_list[:limit + 1]
-    split_index = int(split * len(data_list))
-    train_set = data_list[:split_index]
-    test_set = data_list[split_index:]
-    print("-- Processing train set")
-    __save_csv(train_set, "train.csv", save_dir)
-    print("-- Processing test set")
-    __save_csv(test_set, "test.csv", save_dir)
+def calculate_manhattan_distance(v1, v2):
+    return np.sum(np.abs(v2 - v1))
 
 
-def __save_csv(data_list: List[ImageData], filename, save_dir: str = './output'):
-    with open(os.path.join(save_dir, filename), "w") as f:
-        for data in data_list:
-            f.write(f"{data.label},{','.join(map(str, data.lbp_vector))}\n")
+def calculate_cosine_similarity(v1, v2):
+    return 1 - (np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2)))
 
 
-def run(
-        category: List[str],
-        limit: int = 0,
-        save_dir: str = './output',
-):
-    data_a = load_images("dataset/A", category=category, limit=limit)
-    data_b = load_images("dataset/B", category=category, limit=limit)
-    dataset = np.append(np.array(data_a), np.array(data_b))
-    export(data_list=dataset, limit=limit, save_dir=save_dir)
+def calculate_jaccard_similarity(v1, v2):
+    return 1 - (np.sum(np.minimum(v1, v2)) / np.sum(np.maximum(v1, v2)))
 
 
-if __name__ == "__main__":
-    run(["busy", "free"], limit=200, save_dir='./output')
+def calculate_dice_similarity(v1, v2):
+    return 1 - (2 * np.sum(np.minimum(v1, v2)) / (np.sum(v1) + np.sum(v2)))
+
+
+def calculate_hamming_distance(v1, v2):
+    return np.sum(v1 != v2)
