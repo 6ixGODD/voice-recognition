@@ -6,7 +6,7 @@ from typing import List
 import cv2
 import numpy as np
 
-from lbp import calculate_lbp, calculate_lbp_hist
+from lbp import calculate_lbp_hist, faster_calculate_lbp
 
 RANDOM_SEED = 42
 random.seed(RANDOM_SEED)
@@ -47,8 +47,8 @@ def load_images(
     for i, c in enumerate(category):
         path = os.path.join(root, c)
         for j, f in enumerate(os.listdir(path)):
-            if f.endswith(".jpg"):
-                print(f"-- Processing Image {f} with label {i}")
+            if f.endswith(".jpg") or f.endswith(".png"):
+                print(f"-- Processing Image {f} with label {i} in {c}")
                 data_list.append(
                     process_image(
                         file_path=os.path.join(path, f),
@@ -69,7 +69,7 @@ def process_image(file_path: str, label: int, flatten_channel: bool) -> ImageDat
         image = np.hstack((R, G, B))
     else:
         image = cv2.imread(file_path, cv2.IMREAD_GRAYSCALE)
-    lbp_image = calculate_lbp(image=image)
+    lbp_image = faster_calculate_lbp(image=image)
     hist = calculate_lbp_hist(lbp_image=lbp_image)
     return ImageData(image=image, label=label, lbp=lbp_image, lbp_vector=hist)
 
@@ -122,10 +122,11 @@ if __name__ == "__main__":
 
     start = time.time()
     run(
-        image_dirs=["./data/A", "./data/B"],
-        category=["busy", "free"],
-        limit=1000,
-        save_dir='./output-flatten',
+        image_dirs=["./data/SpectrogramImages"],
+        category=["baohui", "bochen", "lai", "mengyang", "peiyu", "tian", "xiang", "xinyu", "yaobing", "yaoyi",
+                  "yaoyuan", "yongqing", "zhaoyu"],
+        # limit=0,
+        save_dir='./output-spectrogram-flatten',
         flatten_channel=True
     )
     print(f"Time elapsed: {time.time() - start:.2f}s")
