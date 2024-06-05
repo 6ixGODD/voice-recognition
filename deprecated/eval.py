@@ -3,7 +3,8 @@ from typing import List
 
 import numpy as np
 from sklearn.metrics import accuracy_score, confusion_matrix, f1_score, precision_score, recall_score
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import MinMaxScaler, StandardScaler
+from sklearn.svm import SVC
 
 from dataset import load_dataset
 from lbp import (
@@ -29,7 +30,7 @@ def predict_knn(
         N: int = 1
 ) -> int:
     # Standard
-    scalar = StandardScaler()
+    scalar = MinMaxScaler()
     vectors = np.array([row.lbp_vector for row in rows])
     vectors = scalar.fit_transform(vectors)
     v = scalar.transform([v])[0]
@@ -66,7 +67,7 @@ def evaluation_(
     print(f"F1 Score: \t{f1}")
 
 
-def evaluation_svm(train_data: List[Row], test_data: List[Row], _svm):
+def evaluation_svm(train_data: List[Row], test_data: List[Row], _svm: SVC):
     X_train = np.array([row.lbp_vector for row in train_data])
     y_train = np.array([row.label for row in train_data])
     X_test = np.array([row.lbp_vector for row in test_data])
@@ -131,8 +132,8 @@ def evaluation_rf(train_data: List[Row], test_data: List[Row], _rf):
 if __name__ == "__main__":
     import time
 
-    _train_data = load_dataset("./output-spectrogram-flatten/train.csv")
-    _test_data = load_dataset("./output-spectrogram-flatten/test.csv")
+    _train_data = load_dataset("./output-spectrogram-flatten-augmented-1920/train.csv")
+    _test_data =  load_dataset("./output-spectrogram-flatten-augmented-1920/test.csv")
     K = 1
     start = time.time()
     print("== KNN ==")
@@ -178,10 +179,15 @@ if __name__ == "__main__":
         dist_func=calculate_bray_curtis_distance,
         k=K
     )
+    # print("\n-- Bhattacharyya Distance --")
+    # evaluation_(
+    #     train_data=_train_data,
+    #     test_data=_test_data,
+    #     dist_func=calculate_bhattacharyya_distance,
+    #     k=K
+    # )
 
     print("\n== SVM ==")
-    from sklearn.svm import SVC
-
     svm = SVC(kernel='linear', C=1.0, random_state=42, probability=True)
     evaluation_svm(
         train_data=_train_data,

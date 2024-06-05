@@ -64,8 +64,8 @@ def calculate_manhattan_distance(v1, v2):
 
 
 def calculate_cosine_similarity(v1, v2) -> float:
-    result = 1 - (np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2)))
-    return result
+    return 1 - (np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2)))
+
 
 def calculate_minkowski_distance(v1, v2, p=3):
     return np.sum(np.abs(v1 - v2) ** p) ** (1 / p)
@@ -77,3 +77,11 @@ def calculate_chebyshev_distance(v1, v2):
 
 def calculate_bray_curtis_distance(v1, v2):
     return np.sum(np.abs(v1 - v2)) / np.sum(np.abs(v1 + v2))
+
+
+def calculate_bhattacharyya_distance(v1, v2):
+    t = v1 * v2
+    bc = np.sum(np.sqrt(t))
+    result = -np.log(bc)
+    # result = -np.log(np.sum(np.sqrt(v1 * v2 + 1e-06)))
+    return result

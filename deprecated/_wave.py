@@ -1,10 +1,9 @@
+import os
+
 import matplotlib.pyplot as plt
 
-# Set backend of matplotlib to Agg
 plt.switch_backend('Agg')
 
-
-import os
 
 def audio2wave_graph(audio_path, save_path):
     from pydub import AudioSegment

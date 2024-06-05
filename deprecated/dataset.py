@@ -38,7 +38,9 @@ def load_images(
         root: str,
         category: List[str],
         limit: int = 0,
-        flatten_channel: bool = False
+        flatten_channel: bool = False,
+        augment: bool = False,
+        augment_ratio: int = 0.2
 ) -> List[ImageData]:
     data_list = []
     print("== Loading Image")
@@ -78,7 +80,7 @@ def export(
         data_list: List[ImageData],
         limit: int = 0,
         save_dir: str = './output',
-        split: float = 0.5
+        split: float = 0.5,
 ):
     print("== Export Data")
     if not os.path.exists(save_dir):
@@ -112,7 +114,11 @@ def run(
     for image_dir in image_dirs:
         data_list = np.append(
             data_list,
-            np.array(load_images(image_dir, category, limit, flatten_channel))
+            np.array(load_images(
+                image_dir,
+                category,
+                limit,
+                flatten_channel))
         )
     export(data_list, limit, save_dir)
 
@@ -122,11 +128,12 @@ if __name__ == "__main__":
 
     start = time.time()
     run(
-        image_dirs=["./data/SpectrogramImages"],
+        image_dirs=["./data/SpectrogramImages-640"],
         category=["baohui", "bochen", "lai", "mengyang", "peiyu", "tian", "xiang", "xinyu", "yaobing", "yaoyi",
                   "yaoyuan", "yongqing", "zhaoyu"],
         # limit=0,
-        save_dir='./output-spectrogram-flatten',
+        save_dir='./output-spectrogram-flatten-640',
         flatten_channel=True
     )
     print(f"Time elapsed: {time.time() - start:.2f}s")
+

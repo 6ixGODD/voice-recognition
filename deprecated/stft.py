@@ -1,13 +1,6 @@
 import os
 
-import
-
-
-
-
-
-
-
+import librosa
 import matplotlib.pyplot as plt
 import numpy as np
 import shutil
@@ -39,7 +32,7 @@ def audio2spectrogram(audio_path, save_path):
 
 
 def run():
-    # audio_dir = "data/Audio"
+    audio_dir = "data/Audio"
     wave_dir = "data/Wave"
     if not os.path.exists(wave_dir):
         os.makedirs(wave_dir)
