@@ -245,3 +245,4 @@ output
 *.jpg
 *.png
 *.jpeg
+/notebooks/
