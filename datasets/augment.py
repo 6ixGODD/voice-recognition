@@ -4,21 +4,94 @@ from typing import List, Tuple
 
 import cv2
 import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib import gridspec
 
-from datasets.base import BaseImageDataset
+from datasets.base import BaseImageClassifierDataset
 
 RANDOM_SEED = 42
 random.seed(RANDOM_SEED)
 np.random.seed(RANDOM_SEED)
 
 
-class AugmentationDataset(BaseImageDataset):
+class ImageAugmentationDataset(BaseImageClassifierDataset):
     def __init__(self):
-        super(AugmentationDataset, self).__init__()
+        super(ImageAugmentationDataset, self).__init__()
         self.augmented_images = []
         self.augmented_labels = []
 
-    def from_base_dataset(self, dataset: BaseImageDataset):
+    def __str__(self):
+        return (
+            f'{self.__class__.__name__}('
+            f'size={len(self)}, '
+            f'num_classes={len(self.categories)}, '
+            f'categories={self.categories}, '
+            f'augmented_size={len(self.augmented_images)})'
+        )
+
+    def __repr__(self):
+        return self.__str__()
+
+    def overview(self):
+        figure = plt.figure(figsize=(10, 12), dpi=300)
+        gs = gridspec.GridSpec(2, 2, width_ratios=[1, 1], height_ratios=[1, 1])
+
+        ax0 = figure.add_subplot(gs[0])
+        labels, counts = np.unique(self.labels, return_counts=True)
+        categories = [self.categories[lb] for lb in labels]
+        ax0.bar(categories, counts)
+        ax0.set_xticks(categories)
+        plt.xticks(rotation=45, fontstyle='italic', fontsize=10)
+        ax0.set_xlabel('Class')
+        ax0.set_ylabel('Count')
+        ax0.spines['right'].set_visible(False)
+        ax0.spines['top'].set_visible(False)
+        ax0.set_title('Image Distribution')
+
+        ax1 = figure.add_subplot(gs[1])
+        inner_gs = gridspec.GridSpecFromSubplotSpec(3, 3, subplot_spec=gs[1], wspace=0.1, hspace=0.1)
+        for i in range(9):
+            ax = figure.add_subplot(inner_gs[i])
+            img_index = np.random.randint(len(self.images))
+            ax.imshow(self.images[img_index])
+            ax.set_title(f'Class: {self.categories[self.labels[img_index]]}', fontsize=10)
+            ax.axis('off')
+        ax1.spines['right'].set_visible(False)
+        ax1.spines['top'].set_visible(False)
+        ax1.spines['left'].set_visible(False)
+        ax1.spines['bottom'].set_visible(False)
+        ax1.axis('off')
+
+        ax2 = figure.add_subplot(gs[2])
+        labels, counts = np.unique(self.augmented_labels, return_counts=True)
+        categories = [self.categories[lb] for lb in labels]
+        ax2.bar(categories, counts)
+        ax2.set_xticks(categories)
+        plt.xticks(rotation=45, fontstyle='italic', fontsize=10)
+        ax2.set_xlabel('Class')
+        ax2.set_ylabel('Count')
+        ax2.spines['right'].set_visible(False)
+        ax2.spines['top'].set_visible(False)
+        ax2.set_title('Augmented Image Distribution')
+
+        ax3 = figure.add_subplot(gs[3])
+        inner_gs = gridspec.GridSpecFromSubplotSpec(3, 3, subplot_spec=gs[3], wspace=0.1, hspace=0.1)
+        for i in range(9):
+            ax = figure.add_subplot(inner_gs[i])
+            img_index = np.random.randint(len(self.augmented_images))
+            ax.imshow(self.augmented_images[img_index].astype(np.uint8))
+            ax.set_title(f'Class: {self.categories[self.augmented_labels[img_index]]}', fontsize=10)
+            ax.axis('off')
+        ax3.spines['right'].set_visible(False)
+        ax3.spines['top'].set_visible(False)
+        ax3.spines['left'].set_visible(False)
+        ax3.spines['bottom'].set_visible(False)
+        ax3.axis('off')
+
+        plt.tight_layout()
+        plt.show()
+
+    def from_base_dataset(self, dataset: BaseImageClassifierDataset):
         self.images = dataset.images
         self.labels = dataset.labels
         self.categories = dataset.categories
@@ -147,7 +220,7 @@ class AugmentationDataset(BaseImageDataset):
             List[np.ndarray]: List of images after mixing patches.
         """
         patch_images = [
-            patch for image in images for patch in AugmentationDataset.__split_image(image, patch_num)
+            patch for image in images for patch in ImageAugmentationDataset.__split_image(image, patch_num)
         ]
         augmented_images = []
         random.shuffle(patch_images)
@@ -182,11 +255,12 @@ if __name__ == '__main__':
     # dataset_test.load_images(root='../data/A', categories=['busy', 'free'], limit=10)
     # print(dataset_test)
     # dataset_test.save_images(output_dir='output')
-    dataset_test = AugmentationDataset()
-    dataset_test.load_images(root='../data/A', categories=['busy', 'free'], limit=20)
+    dataset_test = ImageAugmentationDataset()
+    dataset_test.load_images(root='../data/prev/A', limit=20)
     print(dataset_test)
     dataset_test.apply_augmentation(aug_ratio=2, gaussian_noise=True, mix_patch=True)
     print(dataset_test)
     dataset_test.save_augmented_images(output_dir='output-augmented')
+    dataset_test.overview()
     # dataset_test.save_images(output_dir='output')
     # print("Done")

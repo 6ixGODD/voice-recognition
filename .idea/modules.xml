@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/local-binary-patterns.iml" filepath="$PROJECT_DIR$/.idea/local-binary-patterns.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/image-classification.iml" filepath="$PROJECT_DIR$/.idea/image-classification.iml" />
     </modules>
   </component>
 </project>

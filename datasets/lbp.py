@@ -2,25 +2,24 @@ import warnings
 from pathlib import Path
 from typing import List
 
-import matplotlib
-
-matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
-plt.rcParams['figure.figsize'] = (12, 12)
+from matplotlib import gridspec
+
 plt.rcParams['font.family'] = 'Times New Roman'
 
 import cv2
 import numpy as np
 
-from datasets.base import BaseImageDataset
+from datasets.base import BaseImageClassifierDataset
 
 RANDOM_SEED = 42
 np.random.seed(RANDOM_SEED)
 
 
-class LocalBinaryPatternsImageDataset(BaseImageDataset):
+class LocalBinaryPatternsImageClassifierDataset(BaseImageClassifierDataset):
     def __init__(self):
-        super(LocalBinaryPatternsImageDataset, self).__init__()
+        super(LocalBinaryPatternsImageClassifierDataset, self).__init__()
+        self.with_channel_flatten = False
         self.lbp_images: List[np.ndarray] = []
         self.lbp_vectors: List[np.ndarray] = []
 
@@ -60,7 +59,19 @@ class LocalBinaryPatternsImageDataset(BaseImageDataset):
         for i in range(len(self)):
             yield self[i]
 
-    def from_base_dataset(self, dataset: BaseImageDataset):
+    def __str__(self):
+        return (
+            f'{self.__class__.__name__}('
+            f'size={len(self)}, '
+            f'num_classes={len(self.categories)}, '
+            f'categories={self.categories}'
+            f'with_channel_flatten={self.with_channel_flatten})'
+        )
+
+    def __repr__(self):
+        return self.__str__()
+
+    def from_base_dataset(self, dataset: BaseImageClassifierDataset):
         self.images = dataset.images
         self.labels = dataset.labels
         self.categories = dataset.categories
@@ -79,12 +90,14 @@ class LocalBinaryPatternsImageDataset(BaseImageDataset):
         self.lbp_vectors = [self.lbp_vectors[i] for i in indices]
 
     def append(self, image: np.ndarray, label: int, category: str = '', **kwargs):
-        super(LocalBinaryPatternsImageDataset, self).append(image, label, category, **kwargs)
+        super(LocalBinaryPatternsImageClassifierDataset, self).append(image, label, category, **kwargs)
         self.lbp_images.append(kwargs['lbp_image'])
         self.lbp_vectors.append(kwargs['lbp_vector'])
 
-    def merge(self, dataset: 'LocalBinaryPatternsImageDataset'):
-        super(LocalBinaryPatternsImageDataset, self).merge(dataset)
+    def merge(self, dataset: 'LocalBinaryPatternsImageClassifierDataset'):
+        if not self.with_channel_flatten and dataset.with_channel_flatten:
+            raise ValueError("Cannot merge dataset with channel flatten and dataset without channel flatten.")
+        super(LocalBinaryPatternsImageClassifierDataset, self).merge(dataset)
         self.lbp_images += dataset.lbp_images
         self.lbp_vectors += dataset.lbp_vectors
 
@@ -101,6 +114,7 @@ class LocalBinaryPatternsImageDataset(BaseImageDataset):
 
     def load_images(self, root: str, limit: int = 0, channel_flatten: bool = False):
         print("== Loading Image")
+        self.with_channel_flatten = channel_flatten
         categories = [d.name for d in Path(root).iterdir() if d.is_dir()]
         num_classes = len(categories)
         for i, c in enumerate(categories):
@@ -126,14 +140,66 @@ class LocalBinaryPatternsImageDataset(BaseImageDataset):
                     print(f"-- Skipping {f} due to unsupported format")
 
     def overview(self):
-        plt.figure(figsize=(6, 6))
-        plt.suptitle("Local Binary Patterns (LBP) Image Dataset Overview")
-        # Display the first 9 images
-        for i, (image, label, category, lbp_image, lbp_vector) in enumerate(self[:9]):
-            plt.subplot(3, 3, i + 1)
-            plt.imshow(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
-            # plt.title(f"{category} ({label})")
-            plt.axis('off')
+        figure = plt.figure(figsize=(10, 12), dpi=300)
+        gs = gridspec.GridSpec(2, 2, width_ratios=[1, 1], height_ratios=[1, .8])
+
+        ax0 = figure.add_subplot(gs[0])
+        labels, counts = np.unique(self.labels, return_counts=True)
+        categories = [self.categories[lb] for lb in labels]
+        ax0.bar(categories, counts)
+        ax0.set_xticks(categories)
+        plt.xticks(rotation=45, fontstyle='italic', fontsize=10)
+        ax0.set_xlabel('Class')
+        ax0.set_ylabel('Count')
+        ax0.spines['right'].set_visible(False)
+        ax0.spines['top'].set_visible(False)
+        ax0.set_title('Image Distribution')
+
+        ax1 = figure.add_subplot(gs[1])
+        inner_gs = gridspec.GridSpecFromSubplotSpec(3, 3, subplot_spec=gs[1], wspace=0.1, hspace=0.1)
+        for i in range(9):
+            ax = figure.add_subplot(inner_gs[i])
+            img_index = np.random.randint(len(self.images))
+            ax.imshow(self.images[img_index])
+            ax.set_title(f'Class: {self.categories[self.labels[img_index]]}', fontsize=10)
+            ax.axis('off')
+        ax1.spines['right'].set_visible(False)
+        ax1.spines['top'].set_visible(False)
+        ax1.spines['left'].set_visible(False)
+        ax1.spines['bottom'].set_visible(False)
+        ax1.axis('off')
+
+        ax2 = figure.add_subplot(gs[2])
+        ax3 = figure.add_subplot(gs[3])
+        # Display 9 random LBP images and their histogram
+        inner_gs_ax2 = gridspec.GridSpecFromSubplotSpec(3, 3, subplot_spec=gs[2], wspace=0.1, hspace=0.1)
+        inner_gs_ax3 = gridspec.GridSpecFromSubplotSpec(3, 3, subplot_spec=gs[3], wspace=0.1, hspace=0.1)
+        for i in range(9):
+            ax_ax2 = figure.add_subplot(inner_gs_ax2[i])
+            ax_ax3 = figure.add_subplot(inner_gs_ax3[i])
+            img_index = np.random.randint(len(self.lbp_images))
+
+            ax_ax2.imshow(self.lbp_images[img_index], cmap='gray')
+            ax_ax2.set_title(f'Class: {self.categories[self.labels[img_index]]}', fontsize=10)
+            ax_ax2.axis('off')
+
+            ax_ax3.bar(np.arange(256), self.lbp_vectors[img_index], color='black')
+            ax_ax3.set_title(f'Class: {self.categories[self.labels[img_index]]}', fontsize=10)
+            ax_ax3.set_xticks([])
+            ax_ax3.set_yticks([])
+
+        ax2.spines['right'].set_visible(False)
+        ax2.spines['top'].set_visible(False)
+        ax2.spines['left'].set_visible(False)
+        ax2.spines['bottom'].set_visible(False)
+        ax2.axis('off')
+
+        ax3.spines['right'].set_visible(False)
+        ax3.spines['top'].set_visible(False)
+        ax3.spines['left'].set_visible(False)
+        ax3.spines['bottom'].set_visible(False)
+        ax3.axis('off')
+
         plt.tight_layout()
         plt.show()
 
@@ -220,7 +286,7 @@ class LocalBinaryPatternsDataset:
         self.lbp_vectors = []
         self.labels = []
 
-    def from_lbp_image_dataset(self, dataset: LocalBinaryPatternsImageDataset):
+    def from_lbp_image_dataset(self, dataset: LocalBinaryPatternsImageClassifierDataset):
         self.lbp_vectors = dataset.lbp_vectors
         self.labels = dataset.labels
 
@@ -263,7 +329,7 @@ class LocalBinaryPatternsDataset:
 
 
 if __name__ == '__main__':
-    dataset_test = LocalBinaryPatternsImageDataset()
+    dataset_test = LocalBinaryPatternsImageClassifierDataset()
     dataset_test.load_images(root='../data/prev/A', limit=10, channel_flatten=True)
     print(dataset_test)
     dataset_test.save_images(output_dir='output')

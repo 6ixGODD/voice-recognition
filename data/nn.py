@@ -1,4 +1,7 @@
+# > Classes index:
+# {'0': 0, '1': 1, '10': 2, '11': 3, '12': 4, '2': 5, '3': 6, '4': 7, '5': 8, '6': 9, '7': 10, '8': 11, '9': 12}
 import os
+
 os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
 
 import datetime
@@ -15,13 +18,14 @@ from torchvision import datasets
 from torchvision import transforms
 
 # config
-MODEL = 'resnet18'  # resnet18, resnet34, resnet50, resnet101, resnet152, alexnet, vgg11, vgg13, vgg16, vgg19,
+# resnet18, resnet34, resnet50, resnet101, resnet152, alexnet, vgg11, vgg13, vgg16, vgg19,
 # squeezenet1_0, squeezenet1_1, densenet121, densenet169, densenet161, densenet201, inception_v3
+MODEL = 'resnet18'
 BATCH_SIZE = 32
 EPOCHS = 100
 LEARNING_RATE = 0.001
 NUM_CLASSES = 13
-DATA_DIR = '../data_split'
+DATA_DIR = '../data/data_split'
 SAVE_DIR = '../output'
 
 if not Path(SAVE_DIR).exists():
@@ -142,7 +146,8 @@ model = torch.hub.load(
     'pytorch/vision:v0.6.0',
     # wandb.config.model if wandb.config.model else MODEL,
     MODEL,
-    pretrained=True
+    # pretrained=True
+    weights=True
 )
 
 # modify fc layer ----------------------------------------------
