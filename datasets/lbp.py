@@ -1,6 +1,6 @@
 import warnings
 from pathlib import Path
-from typing import List
+from typing import Generator, List, Tuple, Union
 
 import matplotlib.pyplot as plt
 from matplotlib import gridspec
@@ -10,20 +10,23 @@ plt.rcParams['font.family'] = 'Times New Roman'
 import cv2
 import numpy as np
 
-from datasets.base import BaseImageClassifierDataset
+from datasets.base import BaseImageClassificationDataset, IMAGE_EXTENSIONS
 
 RANDOM_SEED = 42
 np.random.seed(RANDOM_SEED)
 
 
-class LocalBinaryPatternsImageClassifierDataset(BaseImageClassifierDataset):
+# Dataset for Local Binary Patterns Image Classification.
+class LocalBinaryPatternsImageClassificationDataset(BaseImageClassificationDataset):
     def __init__(self):
-        super(LocalBinaryPatternsImageClassifierDataset, self).__init__()
+        super(LocalBinaryPatternsImageClassificationDataset, self).__init__()
         self.with_channel_flatten = False
         self.lbp_images: List[np.ndarray] = []
         self.lbp_vectors: List[np.ndarray] = []
 
-    def __getitem__(self, idx):
+    def __getitem__(self, idx) -> Union[
+        Tuple[np.ndarray, int, str, np.ndarray, np.ndarray],
+        List[Tuple[np.ndarray, int, str, np.ndarray, np.ndarray]]]:
         if isinstance(idx, int):
             return (
                 self.images[idx],
@@ -55,11 +58,28 @@ class LocalBinaryPatternsImageClassifierDataset(BaseImageClassifierDataset):
         else:
             raise ValueError(f"Invalid index type {type(idx)}")
 
-    def __iter__(self):
+    def __iter__(self) -> Generator[Tuple[np.ndarray, int, str, np.ndarray, np.ndarray], None, None]:
         for i in range(len(self)):
             yield self[i]
 
-    def __str__(self):
+    def __add__(
+            self,
+            other: 'LocalBinaryPatternsImageClassificationDataset'
+    ) -> 'LocalBinaryPatternsImageClassificationDataset':
+        if self.categories != other.categories:
+            raise ValueError(f"Categories mismatch: {self.categories} != {other.categories}")
+        if not self.with_channel_flatten and other.with_channel_flatten:
+            raise ValueError("Cannot merge dataset with channel flatten and dataset without channel flatten.")
+        new_dataset = LocalBinaryPatternsImageClassificationDataset()
+        new_dataset.images = self.images + other.images
+        new_dataset.labels = self.labels + other.labels
+        new_dataset.categories = self.categories
+        new_dataset.lbp_images = self.lbp_images + other.lbp_images
+        new_dataset.lbp_vectors = self.lbp_vectors + other.lbp_vectors
+        new_dataset.with_channel_flatten = self.with_channel_flatten
+        return new_dataset
+
+    def __str__(self) -> str:
         return (
             f'{self.__class__.__name__}('
             f'size={len(self)}, '
@@ -68,10 +88,10 @@ class LocalBinaryPatternsImageClassifierDataset(BaseImageClassifierDataset):
             f'with_channel_flatten={self.with_channel_flatten})'
         )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return self.__str__()
 
-    def from_base_dataset(self, dataset: BaseImageClassifierDataset):
+    def from_base_dataset(self, dataset: BaseImageClassificationDataset):
         self.images = dataset.images
         self.labels = dataset.labels
         self.categories = dataset.categories
@@ -90,18 +110,13 @@ class LocalBinaryPatternsImageClassifierDataset(BaseImageClassifierDataset):
         self.lbp_vectors = [self.lbp_vectors[i] for i in indices]
 
     def append(self, image: np.ndarray, label: int, category: str = '', **kwargs):
-        super(LocalBinaryPatternsImageClassifierDataset, self).append(image, label, category, **kwargs)
+        super(LocalBinaryPatternsImageClassificationDataset, self).append(image, label, category, **kwargs)
         self.lbp_images.append(kwargs['lbp_image'])
         self.lbp_vectors.append(kwargs['lbp_vector'])
 
-    def merge(self, dataset: 'LocalBinaryPatternsImageClassifierDataset'):
-        if not self.with_channel_flatten and dataset.with_channel_flatten:
-            raise ValueError("Cannot merge dataset with channel flatten and dataset without channel flatten.")
-        super(LocalBinaryPatternsImageClassifierDataset, self).merge(dataset)
-        self.lbp_images += dataset.lbp_images
-        self.lbp_vectors += dataset.lbp_vectors
-
     def save_lbp_images(self, output_dir: str, fmt: str = 'jpg'):
+        if f'.{fmt}' not in IMAGE_EXTENSIONS:
+            raise ValueError(f"Invalid image format {fmt}")
         output_dir = Path(output_dir)
         for i, (image, label, category, lbp_image, lbp_vector) in enumerate(self):
             if not Path(output_dir / category).exists():
@@ -113,15 +128,13 @@ class LocalBinaryPatternsImageClassifierDataset(BaseImageClassifierDataset):
             )
 
     def load_images(self, root: str, limit: int = 0, channel_flatten: bool = False):
-        print("== Loading Image")
         self.with_channel_flatten = channel_flatten
         categories = [d.name for d in Path(root).iterdir() if d.is_dir()]
         num_classes = len(categories)
         for i, c in enumerate(categories):
             path = Path(root) / c
             for j, f in enumerate(path.glob('*')):
-                if f.suffix in ['.jpg', '.png', '.jpeg']:
-                    # print(f"-- Processing Image {f} with label {i} in {c}")
+                if f.suffix in IMAGE_EXTENSIONS:
                     img = cv2.imread(str(f))
                     if channel_flatten:
                         # Flatten the channel by stacking the RGB channel horizontally into an image
@@ -281,14 +294,11 @@ class LocalBinaryPatternsImageClassifierDataset(BaseImageClassifierDataset):
                 f.write("\n")
 
 
+# More lightweight version of `LocalBinaryPatternsImageClassificationDataset`.
 class LocalBinaryPatternsDataset:
     def __init__(self):
         self.lbp_vectors = []
         self.labels = []
-
-    def from_lbp_image_dataset(self, dataset: LocalBinaryPatternsImageClassifierDataset):
-        self.lbp_vectors = dataset.lbp_vectors
-        self.labels = dataset.labels
 
     def __len__(self):
         return len(self.labels)
@@ -306,6 +316,13 @@ class LocalBinaryPatternsDataset:
     def __iter__(self):
         for i in range(len(self)):
             yield self[i]
+
+    def __str__(self):
+        return f"{self.__class__.__name__}(size={len(self)})"
+
+    def from_lbp_image_dataset(self, dataset: LocalBinaryPatternsImageClassificationDataset):
+        self.lbp_vectors = dataset.lbp_vectors
+        self.labels = dataset.labels
 
     def shuffle(self):
         indices = np.arange(len(self))
@@ -329,7 +346,7 @@ class LocalBinaryPatternsDataset:
 
 
 if __name__ == '__main__':
-    dataset_test = LocalBinaryPatternsImageClassifierDataset()
+    dataset_test = LocalBinaryPatternsImageClassificationDataset()
     dataset_test.load_images(root='../data/prev/A', limit=10, channel_flatten=True)
     print(dataset_test)
     dataset_test.save_images(output_dir='output')
@@ -337,4 +354,3 @@ if __name__ == '__main__':
     dataset_test.export_csv(output_dir='output', train_test_split=True, train_ratio=0.8)
     dataset_test.export_csv(output_dir='output', train_test_split=False)
     dataset_test.overview()
-    print("Done")

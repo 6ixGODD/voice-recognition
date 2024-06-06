@@ -1,9 +1,9 @@
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Dict, Generator, Iterable, List, Tuple, Union, Sized
 
 import cv2
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
 from matplotlib import gridspec
 
 from utils.images import padding_resize
@@ -12,17 +12,19 @@ plt.rcParams['font.family'] = 'Times New Roman'
 RANDOM_SEED = 42
 np.random.seed(RANDOM_SEED)
 
+IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png']
 
-class BaseImageClassifierDataset:
+
+class BaseImageClassificationDataset(Iterable, Sized):
     def __init__(self, **kwargs):
         self.images: List[np.ndarray] = []
         self.labels: List[int] = []
         self.categories: Dict[int, str] = {}
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.images)
 
-    def __getitem__(self, idx):
+    def __getitem__(self, idx) -> Union[Tuple[np.ndarray, int, str], List[Tuple[np.ndarray, int, str]]]:
         if isinstance(idx, int):
             return self.images[idx], self.labels[idx], self.categories[self.labels[idx]]
         elif isinstance(idx, slice):
@@ -37,11 +39,20 @@ class BaseImageClassifierDataset:
         else:
             raise ValueError(f"Invalid index type {type(idx)}")
 
-    def __iter__(self):
+    def __iter__(self) -> Generator[Tuple[np.ndarray, int, str], None, None]:
         for i in range(len(self)):
             yield self[i]
 
-    def __str__(self):
+    def __add__(self, other: 'BaseImageClassificationDataset') -> 'BaseImageClassificationDataset':
+        if self.categories != other.categories:
+            raise ValueError(f"Categories mismatch: {self.categories} != {other.categories}")
+        new_dataset = BaseImageClassificationDataset()
+        new_dataset.images = self.images + other.images
+        new_dataset.labels = self.labels + other.labels
+        new_dataset.categories = self.categories
+        return new_dataset
+
+    def __str__(self) -> str:
         return (
             f'{self.__class__.__name__}('
             f'size={len(self)}, '
@@ -49,7 +60,7 @@ class BaseImageClassifierDataset:
             f'categories={self.categories})'
         )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return self.__str__()
 
     def overview(self):
@@ -106,13 +117,9 @@ class BaseImageClassifierDataset:
         self.images.append(image)
         self.labels.append(label)
 
-    def merge(self, dataset: 'BaseImageClassifierDataset'):
-        if self.categories != dataset.categories:
-            raise ValueError(f"Categories mismatch: {self.categories} != {dataset.categories}")
-        self.images += dataset.images
-        self.labels += dataset.labels
-
     def save_images(self, output_dir: str, fmt: str = 'jpg'):
+        if f'.{fmt}' not in IMAGE_EXTENSIONS:
+            raise ValueError(f"Invalid image format {fmt}")
         output_dir = Path(output_dir)
         for i, (image, label, category, *_) in enumerate(self):
             if not Path(output_dir / category).exists():
@@ -129,7 +136,7 @@ class BaseImageClassifierDataset:
         for i, c in enumerate(categories):
             path = Path(root) / c
             for j, f in enumerate(path.glob('*')):
-                if f.suffix in ['.jpg', '.png', '.jpeg']:
+                if f.suffix in IMAGE_EXTENSIONS:
                     self.append(
                         image=cv2.imread(str(f)),
                         label=i,
@@ -140,7 +147,7 @@ class BaseImageClassifierDataset:
 
 
 if __name__ == '__main__':
-    dataset_test = BaseImageClassifierDataset()
+    dataset_test = BaseImageClassificationDataset()
     dataset_test.load_images(root='../data/SpectrogramImages')
     print(dataset_test)
     dataset_test.overview()

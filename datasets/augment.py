@@ -7,20 +7,32 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import gridspec
 
-from datasets.base import BaseImageClassifierDataset
+from datasets.base import BaseImageClassificationDataset, IMAGE_EXTENSIONS
 
+plt.rcParams['font.family'] = 'Times New Roman'
 RANDOM_SEED = 42
 random.seed(RANDOM_SEED)
 np.random.seed(RANDOM_SEED)
 
 
-class ImageAugmentationDataset(BaseImageClassifierDataset):
+class ImageAugmentationDataset(BaseImageClassificationDataset):
     def __init__(self):
         super(ImageAugmentationDataset, self).__init__()
         self.augmented_images = []
         self.augmented_labels = []
 
-    def __str__(self):
+    def __add__(self, other: 'ImageAugmentationDataset') -> 'ImageAugmentationDataset':
+        if self.categories != other.categories:
+            raise ValueError(f"Categories mismatch: {self.categories} != {other.categories}")
+        new_dataset = ImageAugmentationDataset()
+        new_dataset.images = self.images + other.images
+        new_dataset.labels = self.labels + other.labels
+        new_dataset.augmented_images = self.augmented_images + other.augmented_images
+        new_dataset.augmented_labels = self.augmented_labels + other.augmented_labels
+        new_dataset.categories = self.categories
+        return new_dataset
+
+    def __str__(self) -> str:
         return (
             f'{self.__class__.__name__}('
             f'size={len(self)}, '
@@ -29,7 +41,7 @@ class ImageAugmentationDataset(BaseImageClassifierDataset):
             f'augmented_size={len(self.augmented_images)})'
         )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return self.__str__()
 
     def overview(self):
@@ -53,7 +65,7 @@ class ImageAugmentationDataset(BaseImageClassifierDataset):
         for i in range(9):
             ax = figure.add_subplot(inner_gs[i])
             img_index = np.random.randint(len(self.images))
-            ax.imshow(self.images[img_index])
+            ax.imshow(self.images[img_index].astype(np.uint8))
             ax.set_title(f'Class: {self.categories[self.labels[img_index]]}', fontsize=10)
             ax.axis('off')
         ax1.spines['right'].set_visible(False)
@@ -91,7 +103,7 @@ class ImageAugmentationDataset(BaseImageClassifierDataset):
         plt.tight_layout()
         plt.show()
 
-    def from_base_dataset(self, dataset: BaseImageClassifierDataset):
+    def from_base_dataset(self, dataset: BaseImageClassificationDataset):
         self.images = dataset.images
         self.labels = dataset.labels
         self.categories = dataset.categories
@@ -231,7 +243,7 @@ class ImageAugmentationDataset(BaseImageClassifierDataset):
         return augmented_images
 
     @staticmethod
-    def __split_image(image: np.ndarray, patch_num):
+    def __split_image(image: np.ndarray, patch_num: int) -> List[np.ndarray]:
         h, w, c = image.shape
         patch_width = w // patch_num
         return [
@@ -239,6 +251,8 @@ class ImageAugmentationDataset(BaseImageClassifierDataset):
         ]
 
     def save_augmented_images(self, output_dir: str, fmt: str = 'jpg'):
+        if f'.{fmt}' not in IMAGE_EXTENSIONS:
+            raise ValueError(f"Invalid image format {fmt}")
         output_dir = Path(output_dir)
         for i, (image, label) in enumerate(zip(self.augmented_images, self.augmented_labels)):
             if not Path(output_dir / self.categories[label]).exists():
@@ -251,10 +265,6 @@ class ImageAugmentationDataset(BaseImageClassifierDataset):
 
 
 if __name__ == '__main__':
-    # dataset_test = BaseImageDataset()
-    # dataset_test.load_images(root='../data/A', categories=['busy', 'free'], limit=10)
-    # print(dataset_test)
-    # dataset_test.save_images(output_dir='output')
     dataset_test = ImageAugmentationDataset()
     dataset_test.load_images(root='../data/prev/A', limit=20)
     print(dataset_test)
@@ -262,5 +272,4 @@ if __name__ == '__main__':
     print(dataset_test)
     dataset_test.save_augmented_images(output_dir='output-augmented')
     dataset_test.overview()
-    # dataset_test.save_images(output_dir='output')
-    # print("Done")
+    dataset_test.save_images(output_dir='output')

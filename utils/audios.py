@@ -3,8 +3,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 from pydub import AudioSegment
 
-plt.switch_backend('Agg')
-
 
 def transform_audio(audio_path: str, output_path: str, fmt: str = "m4a"):
     audio = AudioSegment.from_file(audio_path)

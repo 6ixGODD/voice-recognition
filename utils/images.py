@@ -25,7 +25,6 @@ def padding_resize(
         np.ndarray: Resized image.
 
     """
-    assert size[0] % stride == 0 and size[1] % stride == 0, f"size {size} should be divisible by stride {stride}"
     h, w = image.shape[:2]
     scale = min(size[0] / w, size[1] / h)  # scale to resize
     new_w = int(w * scale)

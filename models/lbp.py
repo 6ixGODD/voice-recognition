@@ -1,10 +1,10 @@
-from typing import Union
+from typing import List, Optional, Union
 
 import numpy as np
 import pandas as pd
 from sklearn.metrics import accuracy_score, confusion_matrix, f1_score, precision_score, recall_score
 
-from datasets.lbp import LocalBinaryPatternsDataset, LocalBinaryPatternsImageClassifierDataset
+from datasets.lbp import LocalBinaryPatternsDataset, LocalBinaryPatternsImageClassificationDataset
 from models.common import ClassifierBackend
 from utils.distances import (
     bray_curtis_distance,
@@ -18,7 +18,7 @@ from utils.files import increment_path
 
 
 class LocalBinaryPatternsClassifierBackend(ClassifierBackend):
-    def __init__(self, estimators=None, scaler=None):
+    def __init__(self, estimators: Optional[List] = None, scaler: Optional = None):
         if estimators is None:
             estimators = []
         if scaler is None:
@@ -38,20 +38,32 @@ class LocalBinaryPatternsClassifierBackend(ClassifierBackend):
             'bray_curtis': bray_curtis_distance,
         }
 
-    def __str__(self):
+    def __str__(self) -> str:
         return (
-            f"Local Binary Patterns Classifier \n"
-            f"Estimators: {self.estimators} \n"
-            f"Scaler: {self.scaler} \n"
-            f"Distance Functions: {self.distances.keys()} \n"
-            f"Train Set: {self.train_set} \n"
+            f"LocalBinaryPatternsClassifierBackend("
+            f"train_set={self.train_set}, "
+            f"distances={list(self.distances.keys())}, "
+            f"estimators={self.estimators}, "
+            f"scaler={self.scaler})"
         )
 
-    def train(self, train_data: Union[LocalBinaryPatternsDataset, LocalBinaryPatternsImageClassifierDataset], **kwargs):
+    def train(
+            self,
+            train_data: Union[LocalBinaryPatternsDataset, LocalBinaryPatternsImageClassificationDataset],
+            **kwargs
+    ):
+        print(">> Training Local Binary Patterns Distance-Based Classifier and Estimators\n" + "=" * 50)
+        print(f"> Distance Functions: {self.distances.keys()}")
+        print(f"> {'Estimators:'.ljust(len('Distance Functions:'))} {self.estimators}")
+        print(f"> {'Scaler:'.ljust(len('Distance Functions:'))} {self.scaler}")
+        print(f"> {'Samples:'.ljust(len('Distance Functions:'))} {len(train_data)}")
+        print("-" * 50)
         self.train_set = train_data
-        train_data.lbp_vectors = self.scaler.fit_transform(train_data.lbp_vectors)
+        self.train_set.lbp_vectors = self.scaler.fit_transform(self.train_set.lbp_vectors)
         for estimator in self.estimators:
-            estimator.fit(train_data.lbp_vectors, train_data.labels)
+            print(f"> Training {estimator}")
+            estimator.fit(self.train_set.lbp_vectors, self.train_set.labels)
+        print("=" * 50)
 
     def predict(self, data: np.ndarray, k: int = 1, distance_func: str = 'euclidean') -> int:
         data = self.scaler.transform([data])[0]
@@ -59,13 +71,15 @@ class LocalBinaryPatternsClassifierBackend(ClassifierBackend):
         nearest_labels = [self.train_set.labels[i] for i in np.argsort(distances)[:k]]
         return np.argmax(np.bincount(nearest_labels))
 
-    def evaluate(
+    def test(
             self,
-            test_data: LocalBinaryPatternsDataset,
+            test_data: Union[LocalBinaryPatternsDataset, LocalBinaryPatternsImageClassificationDataset],
             k: int = 1,
             save_metrics: bool = True,
             save_dir: str = "metrics"
-    ):
+    ) -> pd.DataFrame:
+        print(f">> Evaluating on {len(test_data)} samples")
+
         metric = pd.DataFrame(
             columns=['Method', 'Distance Function', 'Confusion Matrix', 'Accuracy', 'Precision', 'Recall', 'F1 Score']
         )
@@ -79,14 +93,14 @@ class LocalBinaryPatternsClassifierBackend(ClassifierBackend):
             prec = precision_score(y_true, y_pred, average='macro')
             rec = recall_score(y_true, y_pred, average='macro')
             f1 = f1_score(y_true, y_pred, average='macro')
-            print("Method: Distance-Based")
+            print("=" * 50)
+            print("> Method: Distance-Based")
             print(f"Distance Function: {distance_func}")
-            print(f"Confusion Matrix: {cm}")
-            print(f"Accuracy: {acc}")
-            print(f"Precision: {prec}")
-            print(f"Recall: {rec}")
-            print(f"F1 Score: {f1}")
-            print("\n")
+            print(f"Confusion Matrix: \n{cm}")
+            print(f"{'Accuracy'.ljust(len('Precision'))} = {acc}")
+            print(f"Precision = {prec}")
+            print(f"{f'Recall'.ljust(len('Precision'))} = {rec}")
+            print(f"{f'F1 Score'.ljust(len('Precision'))} = {f1}")
             metric.loc[len(metric)] = ['Distance-Based', distance_func, cm, acc, prec, rec, f1]
         for estimator in self.estimators:
             y_true = test_data.labels
@@ -96,17 +110,22 @@ class LocalBinaryPatternsClassifierBackend(ClassifierBackend):
             prec = precision_score(y_true, y_pred, average='macro')
             rec = recall_score(y_true, y_pred, average='macro')
             f1 = f1_score(y_true, y_pred, average='macro')
-            print(f"Method: {estimator.__class__.__name__}")
-            print(f"Confusion Matrix: {cm}")
-            print(f"Accuracy: {acc}")
-            print(f"Precision: {prec}")
-            print(f"Recall: {rec}")
-            print(f"F1 Score: {f1}")
-            print("\n")
-            metric.loc[len(metric)] = [estimator.__class__.__name__, None, cm, acc, prec, rec, f1]
+            print("-" * 50)
+            print(f"> Method: {estimator}")
+            print(f"Confusion Matrix: \n{cm}")
+            print(f"{'Accuracy'.ljust(len('Precision'))} = {acc}")
+            print(f"Precision = {prec}")
+            print(f"{f'Recall'.ljust(len('Precision'))} = {rec}")
+            print(f"{f'F1 Score'.ljust(len('Precision'))} = {f1}")
+            metric.loc[len(metric)] = [str(estimator), None, cm, acc, prec, rec, f1]
 
         if save_metrics:
             metric.to_csv(increment_path(save_dir) / "metrics.csv", index=False)
+            print("-" * 50)
+            print(f"==>> Metrics saved to {save_dir}")
+            print("=" * 50)
+
+        return metric
 
 
 if __name__ == '__main__':

@@ -7,7 +7,7 @@ class ClassifierBackend(ABC):
         pass
 
     @abstractmethod
-    def train(self, train_data, **kwargs):
+    def train(self, train_data, val_data, **kwargs):
         pass
 
     @abstractmethod
@@ -15,5 +15,5 @@ class ClassifierBackend(ABC):
         pass
 
     @abstractmethod
-    def evaluate(self, test_data, **kwargs):
+    def test(self, test_data, **kwargs):
         pass
