@@ -246,3 +246,4 @@ output
 *.png
 *.jpeg
 metrics*
+_*.ipynb
