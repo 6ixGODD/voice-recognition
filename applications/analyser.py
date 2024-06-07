@@ -1,9 +1,10 @@
 import logging
 import sys
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Callable, Dict, List, Optional, Tuple, Union
 
 import cv2
+from PIL import Image
 import numpy as np
 import pyqtgraph as pg
 import sounddevice as sd
@@ -18,9 +19,9 @@ from utils.audios import plot_spectrogram
 from utils.images import calculate_lbp_vector, faster_calculate_lbp
 from utils.logger import get_logger
 
-
 PLAY_ICON = QIcon('applications/asserts/svg/play.svg')
 STOP_ICON = QIcon('applications/asserts/svg/stop.svg')
+
 
 # noinspection PyUnresolvedReferences
 class AnalyserApp(QWidget):
@@ -42,7 +43,7 @@ class AnalyserApp(QWidget):
         # Estimators settings
         self._estimators: List[str] = []  # Store the names of the estimators
         self.lbp_based_estimators: Dict[str, LocalBinaryPatternsClassifierBackend] = {}
-        self.cnn_based_estimators: Dict[str, ConvolutionNeuralNetworkClassifierBackend] = {}
+        self.cnn_based_estimators: Dict[str, Tuple[ConvolutionNeuralNetworkClassifierBackend, Callable]] = {}
 
         self.layout = QVBoxLayout()
         self.setLayout(self.layout)
@@ -140,10 +141,10 @@ class AnalyserApp(QWidget):
         self.__update_combobox()
         self._logger.info(f"Registered LBP-based estimator: {name}")
 
-    def register_cnn_estimator(self, name: str, estimator: ConvolutionNeuralNetworkClassifierBackend):
+    def register_cnn_estimator(self, name: str, estimator: ConvolutionNeuralNetworkClassifierBackend, tfs: Callable):
         if name in self.cnn_based_estimators:
             raise ValueError(f"Estimator with name '{name}' already exists")
-        self.cnn_based_estimators[name] = estimator
+        self.cnn_based_estimators[name] = estimator, tfs
         self._estimators.append(f"{name} (CNN-based)")
         self.model_selector.addItems(self._estimators)
         self.__update_combobox()
@@ -153,7 +154,7 @@ class AnalyserApp(QWidget):
         if not self.wave_timer.isActive():
             self.wave_stream.start()
             self.wave_timer.start(50)
-            self.update_timer.start(10000)
+            self.update_timer.start(12000)
             self.control_button.setIcon(STOP_ICON)
         else:
             self.wave_stream.stop()
@@ -175,23 +176,21 @@ class AnalyserApp(QWidget):
         self.update_timer.stop()
         audio = self.sample_data[-self._sample_rate * 10:]
         self.__generate_spectrogram(audio)
-        pix_map = QPixmap(str(self._temp_dir / 'temp.png'))
+        pix_map = QPixmap(str(self._temp_dir / 'temp.jpg'))
         pix_map = pix_map.scaled(self.image_display.size(), Qt.KeepAspectRatio)
         self.image_display.setPixmap(pix_map)
-        image = cv2.imread(str(self._temp_dir / 'temp.png'), cv2.IMREAD_GRAYSCALE)
-        image = cv2.resize(image, (self._image_size[0], self._image_size[1]))
         if self.classification_thread is not None:
             self.classification_thread.terminate()  # Terminate previous thread
         if self.model_selector.currentText().endswith("(CNN-based)"):  # CNN-based estimator
             self.classification_thread = ClassificationThread(
                 self._logger,
-                image,
+                str(self._temp_dir / 'temp.jpg'),
                 self.cnn_based_estimators[self.model_selector.currentText().split(" (")[0]]
             )
         else:  # LBP-based estimator
             self.classification_thread = ClassificationThread(
                 self._logger,
-                image,
+                str(self._temp_dir / 'temp.jpg'),
                 self.lbp_based_estimators[self.model_selector.currentText().split(" (")[0]],
                 self.model_selector.currentText().split(" (")[1].split(")")[0]
             )
@@ -236,7 +235,7 @@ class SpectrogramThread(QThread):
     def run(self):
         # Save audio to temporary file
         write(str(Path(self.output_path) / 'temp.wav'), self.sr, self.audio)
-        plot_spectrogram(str(Path(self.output_path) / 'temp.wav'), str(Path(self.output_path) / 'temp.png'))
+        plot_spectrogram(str(Path(self.output_path) / 'temp.wav'), str(Path(self.output_path) / 'temp.jpg'))
         self.finished.emit()
 
 
@@ -247,28 +246,36 @@ class ClassificationThread(QThread):
     def __init__(
             self,
             logger: logging.Logger,
-            spectrogram: np.ndarray,
-            estimator: Union[LocalBinaryPatternsClassifierBackend, ConvolutionNeuralNetworkClassifierBackend],
+            image_path: str,
+            estimator: [
+                Union[LocalBinaryPatternsClassifierBackend, Tuple[ConvolutionNeuralNetworkClassifierBackend, Callable]]
+            ],
             name: Optional[str] = None
     ):
         super().__init__()
         self._logger = logger
-        self.spectrogram = spectrogram
+        self.image_path = image_path
         self.estimator = estimator
         self.name = name
 
     def run(self):
         if self.name is None:  # CNN-based estimator
             self._logger.info("Predicting using CNN-based estimator")
-            prediction = self.estimator.predict(self.spectrogram)
+            clf, tfs = self.estimator
+            image = Image.open(self.image_path)
+            image = tfs(image)
+            image = image[None]
+            prediction = clf.predict(image)[0]
         elif "distance-based" in self.name:  # LBP-based estimator with distance function
-            lbp = faster_calculate_lbp(self.spectrogram)
+            image = cv2.imread(self.image_path, cv2.IMREAD_GRAYSCALE)
+            lbp = faster_calculate_lbp(image)
             v = calculate_lbp_vector(lbp)
             self._logger.info(f"Predicting using LBP-based estimator with distance function: {self.name}")
             name, dist = self.name.split(": ")
             prediction = self.estimator.predict(v, estimator=name, distance_func=dist)
         else:  # LBP-based estimator
-            lbp = faster_calculate_lbp(self.spectrogram)
+            image = cv2.imread(self.image_path, cv2.IMREAD_GRAYSCALE)
+            lbp = faster_calculate_lbp(image)
             v = calculate_lbp_vector(lbp)
             self._logger.info(f"Predicting using LBP-based estimator: {self.name}")
             prediction = self.estimator.predict(v, estimator=self.name)
@@ -281,23 +288,44 @@ if __name__ == "__main__":
     from models.lbp import LocalBinaryPatternsClassifierBackend
     from sklearn.ensemble import RandomForestClassifier
     from sklearn.svm import SVC
+    from torchvision import transforms
+
+    DATASET_DIR = "data/augmented"
+    ESTIMATORS = {
+        'SVM: Linear, C=1.0': SVC(kernel='linear', C=1.0),
+        'Random Forest: n_estimators=100': RandomForestClassifier(n_estimators=100),
+    }
+
+    MODEL_NAME = "resnet18"
+    WEIGHT = 'output/resnet-18-voice-reco/best_resnet18_tongue.pth'
+    NUM_CLASSES = 13
+    TRANSFORMS = transforms.Compose(
+        [
+            transforms.Resize((224, 224)),
+            transforms.ToTensor(),
+            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+        ]
+    )
 
     try:
         dataset = LocalBinaryPatternsImageClassificationDataset()
-        dataset.load_images(root='data/augmented')
-        print(dataset)
+        dataset.load_images(root=DATASET_DIR)
         lbp_classifier = LocalBinaryPatternsClassifierBackend(
-            estimators={
-                'svm':           SVC(kernel='linear', C=1.0),
-                'random_forest': RandomForestClassifier(n_estimators=100),
-            }
+            estimators=ESTIMATORS
         )
         lbp_classifier.train(dataset)
+
+        cnn_classifier = ConvolutionNeuralNetworkClassifierBackend(
+            weight_path=WEIGHT, model_name=MODEL_NAME
+        )
+        cnn_classifier.init_model(num_classes=NUM_CLASSES)
+
         app = QApplication(sys.argv)
         window = AnalyserApp(
             dataset.categories, (dataset.lbp_images[0].shape[0], dataset.lbp_images[0].shape[1])
         )
         window.register_lbp_estimator("LBP", lbp_classifier)
+        window.register_cnn_estimator("ResNet-18", cnn_classifier, TRANSFORMS)
         window.show()
         app.exec_()
     except Exception as e:

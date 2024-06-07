@@ -249,3 +249,9 @@ metrics*
 _*.ipynb
 _logs
 _temp
+
+# Weights and biases
+*.pth
+*.pt
+*.pkl
+*.onnx

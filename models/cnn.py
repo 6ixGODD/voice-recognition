@@ -86,41 +86,48 @@ class ConvolutionNeuralNetworkClassifierBackend(ClassifierBackend):
 
     def init_model(self, num_classes: int) -> torch.nn.Module:
         if self.model is not None:
+            self.__init_model(num_classes)
             if self.weight_path:
+                print(f">> Load model from {self.weight_path}")
                 self.model.load_state_dict(torch.load(self.weight_path))
             return self.model.to(self.device)
-        if self.weight_path:
-            model = torch.hub.load(
+        elif self.weight_path:
+            print(f">> Load model from {self.weight_path}")
+            self.model = torch.hub.load(
                 "pytorch/vision:v0.6.0",
                 self.model_name,
             )
-            model.load_state_dict(torch.load(self.weight_path))
+            self.__init_model(num_classes)
+            self.model.load_state_dict(torch.load(self.weight_path))
         else:
-            model = torch.hub.load(
+            print(f">> Load {self.model_name} model")
+            self.model = torch.hub.load(
                 "pytorch/vision:v0.6.0",
                 self.model_name,
                 pretrained=self.__pretrained
             )
+            self.__init_model(num_classes)
+        return self.model.to(self.device)
 
+    def __init_model(self, num_classes: int):
         # Modify the last layer to match the number of classes
         if self.model_name in ["resnet18", "resnet34", "resnet50", "resnet101", "resnet152"]:
-            num_features = model.fc.in_features
-            model.fc = torch.nn.Linear(num_features, num_classes)
+            num_features = self.model.fc.in_features
+            self.model.fc = torch.nn.Linear(num_features, num_classes)
         elif self.model_name in ["alexnet", "vgg11", "vgg13", "vgg16", "vgg19"]:
-            num_features = model.classifier[6].in_features
-            model.classifier[6] = torch.nn.Linear(num_features, num_classes)
+            num_features = self.model.classifier[6].in_features
+            self.model.classifier[6] = torch.nn.Linear(num_features, num_classes)
         elif self.model_name in ["squeezenet1_0", "squeezenet1_1"]:
-            model.classifier[1] = torch.nn.Conv2d(512, num_classes, kernel_size=(1, 1), stride=(1, 1))
-            model.num_classes = num_classes
+            self.model.classifier[1] = torch.nn.Conv2d(512, num_classes, kernel_size=(1, 1), stride=(1, 1))
+            self.model.num_classes = num_classes
         elif self.model_name in ["densenet121", "densenet169", "densenet161", "densenet201"]:
-            num_features = model.classifier.in_features
-            model.classifier = torch.nn.Linear(num_features, num_classes)
+            num_features = self.model.classifier.in_features
+            self.model.classifier = torch.nn.Linear(num_features, num_classes)
         elif self.model_name in ["inception_v3"]:
-            num_features = model.fc.in_features
-            model.fc = torch.nn.Linear(num_features, num_classes)
+            num_features = self.model.fc.in_features
+            self.model.fc = torch.nn.Linear(num_features, num_classes)
         else:
             raise ValueError(f"Not support this model yet: {self.model_name}")
-        return model.to(self.device)
 
     def train(self, train_data: TorchImageClassificationDataset, val_data: TorchImageClassificationDataset, **kwargs):
         # When Ctrl+C is pressed, save the model before exit
