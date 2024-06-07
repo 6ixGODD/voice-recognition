@@ -6,6 +6,7 @@ from typing import Optional, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 import torch
 import torchsummary
 from matplotlib import gridspec
@@ -176,7 +177,6 @@ class ConvolutionNeuralNetworkClassifierBackend(ClassifierBackend):
                         f"Loss = {loss.item():.4f}"
                     )
 
-            train_confusion_matrix = confusion_matrix(train_y_true, train_y_pred)
             train_accuracy = accuracy_score(train_y_true, train_y_pred) * 100
             train_precision = precision_score(train_y_true, train_y_pred, average='macro')
             train_recall = recall_score(train_y_true, train_y_pred, average='macro')
@@ -186,9 +186,8 @@ class ConvolutionNeuralNetworkClassifierBackend(ClassifierBackend):
                 + "-" * 50
             )
             print(f">> Training Metrics:")
-            print(f"Confusion Matrix:\n{train_confusion_matrix}")
             print(f"{'Accuracy'.ljust(len('Precision'))} = {train_accuracy:.2f}%")
-            print(f"Precision \t= {train_precision:.2f}")
+            print(f"Precision = {train_precision:.2f}")
             print(f"{f'Recall'.ljust(len('Precision'))} = {train_recall:.2f}")
             print(f"{f'F1 Score'.ljust(len('Precision'))} = {train_f1:.2f}")
             print("-" * 50)
@@ -216,13 +215,11 @@ class ConvolutionNeuralNetworkClassifierBackend(ClassifierBackend):
                     val_y_pred.extend(predicted.cpu().numpy())
 
                 val_accuracy = accuracy_score(val_y_true, val_y_pred) * 100
-                val_confusion_matrix = confusion_matrix(val_y_true, val_y_pred)
                 val_precision = precision_score(val_y_true, val_y_pred, average='macro')
                 val_recall = recall_score(val_y_true, val_y_pred, average='macro')
                 val_f1 = f1_score(val_y_true, val_y_pred, average='macro')
                 print(f"==>> Validation Loss = {val_loss / len(val_data_loader):.4f}")
                 print(f">> Validation Metrics:")
-                print(f"Confusion Matrix:\n{val_confusion_matrix}")
                 print(f"{'Accuracy'.ljust(len('Precision'))} = {val_accuracy:.2f}%")
                 print(f"Precision \t= {val_precision:.2f}")
                 print(f"{f'Recall'.ljust(len('Precision'))} = {val_recall:.2f}")
@@ -308,7 +305,7 @@ class ConvolutionNeuralNetworkClassifierBackend(ClassifierBackend):
             _, predicted = torch.max(outputs, 1)
             return predicted.cpu().numpy()
 
-    def test(self, test_data: TorchImageClassificationDataset, batch_size: int = 1, **kwargs):
+    def test(self, test_data: TorchImageClassificationDataset, batch_size: int = 1, **kwargs) -> pd.DataFrame:
         print(f">> Testing {self.model_name} model")
         print("=" * 50)
         test_data_loader = DataLoader(
@@ -340,14 +337,13 @@ class ConvolutionNeuralNetworkClassifierBackend(ClassifierBackend):
             test_precision = precision_score(test_y_true, test_y_pred, average='macro')
             test_recall = recall_score(test_y_true, test_y_pred, average='macro')
             test_f1 = f1_score(test_y_true, test_y_pred, average='macro')
-            print(f"==>> Test Loss = {test_loss / len(test_data_loader):.4f}")
-            print(f">> Test Metrics:")
-            print(f"Confusion Matrix:\n{test_confusion_matrix}")
-            print(f"{'Accuracy'.ljust(len('Precision'))} = {test_accuracy:.2f}%")
-            print(f"Precision \t= {test_precision:.2f}")
-            print(f"{f'Recall'.ljust(len('Precision'))} = {test_recall:.2f}")
-            print(f"{f'F1 Score'.ljust(len('Precision'))} = {test_f1:.2f}")
-            print("-" * 50)
+            return pd.DataFrame(
+                columns=['Test Loss', 'confusion_matrix', 'Accuracy', 'Precision', 'Recall', 'F1 Score'],
+                data=[[
+                    test_loss / len(test_data_loader),
+                    test_confusion_matrix, test_accuracy, test_precision, test_recall, test_f1
+                ]]
+            )
 
     def __save_model(self, prefix: str = ""):
         (self.save_dir / f"{prefix}_{self.model_name}.pth").unlink(missing_ok=True)  # Remove old model

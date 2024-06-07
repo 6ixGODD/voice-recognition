@@ -1,4 +1,4 @@
-from typing import List, Optional, Union
+from typing import Any, Dict, Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -18,9 +18,13 @@ from utils.files import increment_path
 
 
 class LocalBinaryPatternsClassifierBackend(ClassifierBackend):
-    def __init__(self, estimators: Optional[List] = None, scaler: Optional = None):
+    def __init__(
+            self,
+            estimators: Optional[Dict[str, Any]] = None,  # Dictionary of name-estimator pairs
+            scaler: Optional = None
+    ):
         if estimators is None:
-            estimators = []
+            estimators = {}
         if scaler is None:
             from sklearn.preprocessing import StandardScaler
             scaler = StandardScaler()
@@ -47,6 +51,9 @@ class LocalBinaryPatternsClassifierBackend(ClassifierBackend):
             f"scaler={self.scaler})"
         )
 
+    def __repr__(self) -> str:
+        return self.__str__()
+
     def train(
             self,
             train_data: Union[LocalBinaryPatternsDataset, LocalBinaryPatternsImageClassificationDataset],
@@ -58,16 +65,25 @@ class LocalBinaryPatternsClassifierBackend(ClassifierBackend):
         print(f"> {'Scaler:'.ljust(len('Distance Functions:'))} {self.scaler}")
         print(f"> {'Samples:'.ljust(len('Distance Functions:'))} {len(train_data)}")
         print("-" * 50)
+        print("> Training Distance-Based Classifier")
         self.train_set = train_data
         self.train_set.lbp_vectors = self.scaler.fit_transform(self.train_set.lbp_vectors)
-        for estimator in self.estimators:
-            print(f"> Training {estimator}")
+        for name, estimator in self.estimators.items():
+            print(f"> Training {name}")
             estimator.fit(self.train_set.lbp_vectors, self.train_set.labels)
-        print("=" * 50)
+        print("-" * 50)
 
-    def predict(self, data: np.ndarray, k: int = 1, distance_func: str = 'euclidean') -> int:
-        data = self.scaler.transform([data])[0]
-        distances = [self.distances[distance_func](data, vector) for vector in self.train_set.lbp_vectors]
+    def predict(
+            self,
+            data: np.ndarray,
+            k: int = 1,
+            estimator: str = 'distance-based',  # 'distance-based' or '<estimator-key>'
+            distance_func: str = 'euclidean'
+    ) -> int:
+        data = self.scaler.transform([data])
+        if estimator in self.estimators:
+            return self.estimators[estimator].predict(data)[0]
+        distances = [self.distances[distance_func](data[0], vector) for vector in self.train_set.lbp_vectors]
         nearest_labels = [self.train_set.labels[i] for i in np.argsort(distances)[:k]]
         return np.argmax(np.bincount(nearest_labels))
 
@@ -75,7 +91,7 @@ class LocalBinaryPatternsClassifierBackend(ClassifierBackend):
             self,
             test_data: Union[LocalBinaryPatternsDataset, LocalBinaryPatternsImageClassificationDataset],
             k: int = 1,
-            save_metrics: bool = True,
+            save_metrics: bool = False,
             save_dir: str = "metrics"
     ) -> pd.DataFrame:
         print(f">> Evaluating on {len(test_data)} samples")
@@ -83,11 +99,11 @@ class LocalBinaryPatternsClassifierBackend(ClassifierBackend):
         metric = pd.DataFrame(
             columns=['Method', 'Distance Function', 'Confusion Matrix', 'Accuracy', 'Precision', 'Recall', 'F1 Score']
         )
-        for distance_func in self.distances:
+        for distance_func in self.distances:  # Distance-Based Classifier
             y_true = test_data.labels
             y_pred = []
-            for test in test_data.lbp_vectors:
-                y_pred.append(self.predict(test, distance_func=distance_func, k=k))
+            for data in test_data.lbp_vectors:
+                y_pred.append(self.predict(data, distance_func=distance_func, k=k))
             cm = confusion_matrix(y_true, y_pred)
             acc = accuracy_score(y_true, y_pred)
             prec = precision_score(y_true, y_pred, average='macro')
@@ -102,7 +118,7 @@ class LocalBinaryPatternsClassifierBackend(ClassifierBackend):
             print(f"{f'Recall'.ljust(len('Precision'))} = {rec}")
             print(f"{f'F1 Score'.ljust(len('Precision'))} = {f1}")
             metric.loc[len(metric)] = ['Distance-Based', distance_func, cm, acc, prec, rec, f1]
-        for estimator in self.estimators:
+        for name, estimator in self.estimators.items():  # Estimators
             y_true = test_data.labels
             y_pred = estimator.predict(self.scaler.transform(test_data.lbp_vectors))
             cm = confusion_matrix(y_true, y_pred)
@@ -111,13 +127,13 @@ class LocalBinaryPatternsClassifierBackend(ClassifierBackend):
             rec = recall_score(y_true, y_pred, average='macro')
             f1 = f1_score(y_true, y_pred, average='macro')
             print("-" * 50)
-            print(f"> Method: {estimator}")
+            print(f"> Method: {name}")
             print(f"Confusion Matrix: \n{cm}")
             print(f"{'Accuracy'.ljust(len('Precision'))} = {acc}")
             print(f"Precision = {prec}")
             print(f"{f'Recall'.ljust(len('Precision'))} = {rec}")
             print(f"{f'F1 Score'.ljust(len('Precision'))} = {f1}")
-            metric.loc[len(metric)] = [str(estimator), None, cm, acc, prec, rec, f1]
+            metric.loc[len(metric)] = [name, None, cm, acc, prec, rec, f1]
 
         if save_metrics:
             metric.to_csv(increment_path(save_dir) / "metrics.csv", index=False)
@@ -134,7 +150,10 @@ if __name__ == '__main__':
     from sklearn.ensemble import RandomForestClassifier
 
     backend = LocalBinaryPatternsClassifierBackend(
-        estimators=[RandomForestClassifier(), SVC()],
+        estimators={
+            'svc': SVC(kernel='linear'),
+            'rf':  RandomForestClassifier()
+        },
         scaler=StandardScaler()
     )
     print(backend)

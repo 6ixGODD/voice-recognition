@@ -40,56 +40,24 @@ def padding_resize(
     return image, (dw, dh)
 
 
-if __name__ == '__main__':
-    # data_split
-    # -- train
-    #    -- 0
-    #       -- 0.jpg
-    #       -- 1.jpg
-    #    -- 1
-    #       -- 0.jpg
-    #       -- 1.jpg
-    # ...
-    # -- test
-    #    -- 0
-    #       -- 0.jpg
-    #       -- 1.jpg
-    #    -- 1
-    #       -- 0.jpg
-    #       -- 1.jpg
-    # ...
-    # -- val
-    #    -- 0
-    #       -- 0.jpg
-    #       -- 1.jpg
-    #    -- 1
-    #       -- 0.jpg
-    #       -- 1.jpg
-    # ...
+def faster_calculate_lbp(gray_image: np.ndarray) -> np.ndarray:
+    padded_image = np.pad(gray_image, pad_width=1, mode='edge')
+    lbp_image = np.zeros_like(gray_image, dtype=np.int32)
 
-    # Split it into train, test, and validation set and resize them all
-    from pathlib import Path
-    import shutil
+    # Define the offsets for the 8 neighbors
+    offsets = [(i, j) for i in range(-1, 2) for j in range(-1, 2) if (i, j) != (0, 0)]
 
-    source = Path('../data/SpectrogramImages')
-    target = Path('../data_split')
-    target.mkdir(parents=True, exist_ok=True)
+    for idx, (di, dj) in enumerate(offsets):
+        # Shift the padded image using the offsets
+        shifted_image = padded_image[1 + di: 1 + di + gray_image.shape[0], 1 + dj: 1 + dj + gray_image.shape[1]]
+        # Update the binary representation of the LBP image
+        lbp_image += (shifted_image >= padded_image[1:-1, 1:-1]) << idx
 
-    for label, c in enumerate(source.iterdir()):
-        if c.is_dir():
-            for i, f in enumerate(c.iterdir()):
-                (target / "train" / str(label)).mkdir(parents=True, exist_ok=True)
-                (target / "test" / str(label)).mkdir(parents=True, exist_ok=True)
-                (target / "val" / str(label)).mkdir(parents=True, exist_ok=True)
-                if i < int(0.7 * len(list(c.iterdir()))):
-                    shutil.copy(f, target / "train" / str(label) / f.name)
-                elif i < int(0.8 * len(list(c.iterdir()))):
-                    shutil.copy(f, target / "test" / str(label) / f.name)
-                else:
-                    shutil.copy(f, target / "val" / str(label) / f.name)
+    return lbp_image.astype(np.uint8)
 
-                im = cv2.imread(str(f))
-                im, _ = padding_resize(im, size=(224, 224), color=(0, 0, 0))
-                cv2.imwrite(str(f), im)
-                print(f"Save image to {f}")
-    print("Done!")
+
+def calculate_lbp_vector(lbp_image: np.ndarray) -> np.ndarray:
+    hist, _ = np.histogram(lbp_image.ravel(), bins=np.arange(0, 256 + 1), range=(0, 256))
+    hist = hist.astype("float")
+    hist /= (hist.sum() + 1e-06)
+    return hist

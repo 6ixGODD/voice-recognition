@@ -22,6 +22,9 @@ from scipy.io.wavfile import write
 from utils.logger import get_logger
 
 
+PLAY_ICON = QIcon('applications/asserts/svg/play.svg')
+STOP_ICON = QIcon('applications/asserts/svg/stop.svg')
+
 # noinspection PyUnresolvedReferences
 class CollectorApp(QWidget):
     def __init__(
@@ -32,7 +35,7 @@ class CollectorApp(QWidget):
             audio_channels: int = 1
     ):
         super().__init__()
-        self._logger = get_logger("CollectorApp", "logs/collector.log")
+        self._logger = get_logger("CollectorApp", "_logs/collector.log")
         self._logger.info("Starting Collector App")
         self._dataset_dir = Path(dataset_dir)
         self._username = None
@@ -82,7 +85,7 @@ class CollectorApp(QWidget):
         # Record button
         self.record_button = QPushButton()
         self.record_button.setFixedSize(QSize(40, 40))
-        self.record_button.setIcon(QIcon('asserts/svg/play.svg'))
+        self.record_button.setIcon(PLAY_ICON)
         self.record_button.clicked.connect(self.__start_recording)
 
         # Record progress bar
@@ -122,7 +125,6 @@ class CollectorApp(QWidget):
         self.setLayout(self.layout)
         self.setWindowTitle("Collector App")
         self.setGeometry(300, 300, 400, 120)
-        self.show()
 
     def __next_page(self):
         username = self.name_edit.text()
@@ -145,7 +147,7 @@ class CollectorApp(QWidget):
     def __start_recording(self):
         if self.timer.isActive():
             self._logger.info("Stopped recording audio")
-            self.record_button.setIcon(QIcon('asserts/svg/play.svg'))
+            self.record_button.setIcon(PLAY_ICON)
             self.timer.stop()
             self.record_button.setEnabled(True)  # Re-enable button after recording
             self.submit_button.setEnabled(True)
@@ -157,7 +159,7 @@ class CollectorApp(QWidget):
                 channels=self._audio_channels,
                 dtype='float32'
             )
-            self.record_button.setIcon(QIcon('asserts/svg/stop.svg'))
+            self.record_button.setIcon(STOP_ICON)
             self.record_button.setEnabled(False)
             self.submit_button.setEnabled(False)
             self.__current_duration = 0
@@ -169,7 +171,7 @@ class CollectorApp(QWidget):
         self._logger.info(f"Saved audio at {audio_path}")
         self.submit_button.setEnabled(False)
         self.record_button.setEnabled(True)
-        self.record_button.setIcon(QIcon('asserts/svg/play.svg'))
+        self.record_button.setIcon(PLAY_ICON)
         self.timer.stop()
         self.duration_label.setText("submitted!")
 
@@ -186,8 +188,8 @@ class CollectorApp(QWidget):
             self.record_button.setEnabled(True)
             self.submit_button.setEnabled(True)
             self.__current_duration = 0  # Reset timer for next recording
-            self.duration_label.setText("completed!")
-            self.record_button.setIcon(QIcon('asserts/svg/play.svg'))
+            self.duration_label.setText("ok")
+            self.record_button.setIcon(PLAY_ICON)
 
 
 if __name__ == '__main__':
@@ -195,8 +197,9 @@ if __name__ == '__main__':
 
     try:
         app = QApplication(sys.argv)
-        ex = CollectorApp()
-        sys.exit(app.exec_())
+        windows = CollectorApp()
+        windows.show()
+        app.exec_()
     except Exception as e:
         print(f"An error occurred: {e}")
         traceback.print_exc()

@@ -28,8 +28,8 @@ def plot_wave(audio_path: str, save_path: str, figsize=(2.56, 2.56), dpi=300):
     plt.close()
 
 
-def plot_spectrogram(audio_path: str, output_path: str):
-    y, sr = librosa.load(audio_path)
+def plot_spectrogram(audio: str, output_path: str):
+    y, sr = librosa.load(audio)
     D = librosa.stft(y)
     D_db = librosa.amplitude_to_db(abs(D), ref=np.max)
     plt.figure(figsize=(6.4, 6.4), dpi=300)

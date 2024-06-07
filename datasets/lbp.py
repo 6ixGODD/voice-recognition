@@ -20,7 +20,7 @@ np.random.seed(RANDOM_SEED)
 class LocalBinaryPatternsImageClassificationDataset(BaseImageClassificationDataset):
     def __init__(self):
         super(LocalBinaryPatternsImageClassificationDataset, self).__init__()
-        self.with_channel_flatten = False
+        self.with_channel_flatten: bool = False
         self.lbp_images: List[np.ndarray] = []
         self.lbp_vectors: List[np.ndarray] = []
 
@@ -297,13 +297,13 @@ class LocalBinaryPatternsImageClassificationDataset(BaseImageClassificationDatas
 # More lightweight version of `LocalBinaryPatternsImageClassificationDataset`.
 class LocalBinaryPatternsDataset:
     def __init__(self):
-        self.lbp_vectors = []
-        self.labels = []
+        self.lbp_vectors: List[np.ndarray] = []
+        self.labels: List[int] = []
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.labels)
 
-    def __getitem__(self, idx):
+    def __getitem__(self, idx) -> Union[Tuple[np.ndarray, int], List[Tuple[np.ndarray, int]]]:
         if isinstance(idx, int):
             return self.lbp_vectors[idx], self.labels[idx]
         elif isinstance(idx, slice):
@@ -313,11 +313,11 @@ class LocalBinaryPatternsDataset:
         else:
             raise ValueError(f"Invalid index type {type(idx)}")
 
-    def __iter__(self):
+    def __iter__(self) -> Generator[Tuple[np.ndarray, int], None, None]:
         for i in range(len(self)):
             yield self[i]
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"{self.__class__.__name__}(size={len(self)})"
 
     def from_lbp_image_dataset(self, dataset: LocalBinaryPatternsImageClassificationDataset):
@@ -342,7 +342,7 @@ class LocalBinaryPatternsDataset:
             for line in f:
                 parts = line.strip().split(',')
                 self.labels.append(int(parts[0]))
-                self.lbp_vectors.append(list(map(float, parts[1:])))
+                self.lbp_vectors.append(np.array(parts[1:], dtype=np.float32))
 
 
 if __name__ == '__main__':

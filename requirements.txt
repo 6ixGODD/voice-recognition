@@ -10,6 +10,6 @@ torch~=2.3.1+cu118
 torchvision~=0.18.1+cu118
 torchsummary~=1.5.1
 scipy
-pyqt5~=5.15.10
-
+pyqt5
+pyqtgraph
 sounddevice~=0.4.7

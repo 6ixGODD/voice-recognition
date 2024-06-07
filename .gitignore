@@ -247,3 +247,5 @@ output
 *.jpeg
 metrics*
 _*.ipynb
+_logs
+_temp
