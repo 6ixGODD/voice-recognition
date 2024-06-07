@@ -1,6 +1,10 @@
-import logging
 import sys
 from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parents[1]
+sys.path.append(str(ROOT))
+
+import logging
 from typing import Callable, Dict, List, Optional, Tuple, Union
 
 import cv2
@@ -86,6 +90,7 @@ class AnalyserApp(QWidget):
         self.image_display.setFixedSize(QSize(640, 640))
         self.image_display.setAlignment(Qt.AlignCenter)
         self.middle_layout.addWidget(self.image_display)
+        self.middle_layout.setAlignment(Qt.AlignCenter)
 
         self.layout.addLayout(self.middle_layout)
 
@@ -183,16 +188,17 @@ class AnalyserApp(QWidget):
             self.classification_thread.terminate()  # Terminate previous thread
         if self.model_selector.currentText().endswith("(CNN-based)"):  # CNN-based estimator
             self.classification_thread = ClassificationThread(
-                self._logger,
-                str(self._temp_dir / 'temp.jpg'),
-                self.cnn_based_estimators[self.model_selector.currentText().split(" (")[0]]
+                logger=self._logger,
+                image_path=str(self._temp_dir / 'temp.jpg'),
+                estimator=self.cnn_based_estimators[self.model_selector.currentText().split(" (")[0]]
             )
         else:  # LBP-based estimator
             self.classification_thread = ClassificationThread(
-                self._logger,
-                str(self._temp_dir / 'temp.jpg'),
-                self.lbp_based_estimators[self.model_selector.currentText().split(" (")[0]],
-                self.model_selector.currentText().split(" (")[1].split(")")[0]
+                logger=self._logger,
+                image_path=str(self._temp_dir / 'temp.jpg'),
+                estimator=self.lbp_based_estimators[self.model_selector.currentText().split(" (")[0]],
+                name=self.model_selector.currentText().split(" (")[1].split(")")[0],
+                image_size=self._image_size
             )
         self.classification_thread.finished.connect(self.__update_label_display)
         self.classification_thread.start()
@@ -250,13 +256,15 @@ class ClassificationThread(QThread):
             estimator: [
                 Union[LocalBinaryPatternsClassifierBackend, Tuple[ConvolutionNeuralNetworkClassifierBackend, Callable]]
             ],
-            name: Optional[str] = None
+            name: Optional[str] = None,
+            image_size: Tuple[int, int] = (224, 224)
     ):
         super().__init__()
         self._logger = logger
         self.image_path = image_path
         self.estimator = estimator
         self.name = name
+        self.image_size = image_size
 
     def run(self):
         if self.name is None:  # CNN-based estimator
@@ -268,6 +276,7 @@ class ClassificationThread(QThread):
             prediction = clf.predict(image)[0]
         elif "distance-based" in self.name:  # LBP-based estimator with distance function
             image = cv2.imread(self.image_path, cv2.IMREAD_GRAYSCALE)
+            image = cv2.resize(image, (self.image_size[1], self.image_size[0]))
             lbp = faster_calculate_lbp(image)
             v = calculate_lbp_vector(lbp)
             self._logger.info(f"Predicting using LBP-based estimator with distance function: {self.name}")
@@ -275,6 +284,7 @@ class ClassificationThread(QThread):
             prediction = self.estimator.predict(v, estimator=name, distance_func=dist)
         else:  # LBP-based estimator
             image = cv2.imread(self.image_path, cv2.IMREAD_GRAYSCALE)
+            image = cv2.resize(image, (self.image_size[1], self.image_size[0]))
             lbp = faster_calculate_lbp(image)
             v = calculate_lbp_vector(lbp)
             self._logger.info(f"Predicting using LBP-based estimator: {self.name}")
@@ -292,12 +302,12 @@ if __name__ == "__main__":
 
     DATASET_DIR = "data/augmented"
     ESTIMATORS = {
-        'SVM: Linear, C=1.0': SVC(kernel='linear', C=1.0),
+        'SVM: Linear, C=1.0':              SVC(kernel='linear', C=1.0),
         'Random Forest: n_estimators=100': RandomForestClassifier(n_estimators=100),
     }
 
     MODEL_NAME = "resnet18"
-    WEIGHT = 'output/resnet-18-voice-reco/best_resnet18_tongue.pth'
+    WEIGHT = 'output/resnet18/best_resnet18.pth'
     NUM_CLASSES = 13
     TRANSFORMS = transforms.Compose(
         [

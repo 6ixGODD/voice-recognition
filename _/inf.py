@@ -1,9 +1,7 @@
-import cv2
+from PIL import Image
+from torchvision import transforms
 
 from models.cnn import ConvolutionNeuralNetworkClassifierBackend
-from torchvision import transforms
-from PIL import Image
-
 
 backend = ConvolutionNeuralNetworkClassifierBackend(
     weight_path="../best_resnet18_tongue.pth",

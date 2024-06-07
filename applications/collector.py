@@ -1,7 +1,11 @@
-import re
 import sys
-import time
 from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parents[1]
+sys.path.append(str(ROOT))
+
+import re
+import time
 from typing import Tuple
 
 import sounddevice as sd
@@ -21,9 +25,9 @@ from scipy.io.wavfile import write
 
 from utils.logger import get_logger
 
-
 PLAY_ICON = QIcon('applications/asserts/svg/play.svg')
 STOP_ICON = QIcon('applications/asserts/svg/stop.svg')
+
 
 # noinspection PyUnresolvedReferences
 class CollectorApp(QWidget):
