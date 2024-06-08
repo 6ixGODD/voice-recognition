@@ -91,12 +91,17 @@ class LocalBinaryPatternsImageClassificationDataset(BaseImageClassificationDatas
     def __repr__(self) -> str:
         return self.__str__()
 
-    def from_base_dataset(self, dataset: BaseImageClassificationDataset):
+    def from_base_dataset(self, dataset: BaseImageClassificationDataset, channel_flatten: bool = False):
         self.images = dataset.images
         self.labels = dataset.labels
         self.categories = dataset.categories
         for image in self.images:
-            lbp_image = self.__faster_calculate_lbp(image)
+            if channel_flatten:
+                R, G, B = cv2.split(image)
+                gray_img = np.hstack((R, G, B))
+            else:
+                gray_img = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+            lbp_image = self.__faster_calculate_lbp(gray_img)
             lbp_vector = self.__calculate_lbp_vector(lbp_image)
             self.lbp_images.append(lbp_image)
             self.lbp_vectors.append(lbp_vector)
@@ -121,7 +126,6 @@ class LocalBinaryPatternsImageClassificationDataset(BaseImageClassificationDatas
         for i, (image, label, category, lbp_image, lbp_vector) in enumerate(self):
             if not Path(output_dir / category).exists():
                 Path(output_dir / category).mkdir(parents=True, exist_ok=True)
-            print(f"-- Saving LBP image {i + 1}/{len(self)}")
             cv2.imwrite(
                 str(output_dir / category / f"{label}-{i}.lbp.{fmt}"),
                 lbp_image
@@ -267,8 +271,7 @@ class LocalBinaryPatternsImageClassificationDataset(BaseImageClassificationDatas
             train_ratio: float = 0.8
     ):
         output_dir = Path(output_dir)
-        if not output_dir.exists():
-            output_dir.mkdir(parents=True, exist_ok=True)
+        output_dir.mkdir(parents=True, exist_ok=True)
         if train_test_split:
             train_csv = output_dir / "train.csv"
             train_csv.unlink() if train_csv.exists() else None

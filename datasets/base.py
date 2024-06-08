@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Dict, Generator, Iterable, List, Tuple, Union, Sized
+from typing import Dict, Generator, Iterable, List, Sized, Tuple, Union
 
 import cv2
 import matplotlib.pyplot as plt
@@ -117,18 +117,40 @@ class BaseImageClassificationDataset(Iterable, Sized):
         self.images.append(image)
         self.labels.append(label)
 
-    def save_images(self, output_dir: str, fmt: str = 'jpg'):
+    def save_images(
+            self,
+            output_dir: str,
+            fmt: str = 'jpg',
+            split: bool = False,
+            split_ratio: Tuple[float, float, float] = (0.7, 0.2, 0.1)
+    ):
         if f'.{fmt}' not in IMAGE_EXTENSIONS:
             raise ValueError(f"Invalid image format {fmt}")
         output_dir = Path(output_dir)
-        for i, (image, label, category, *_) in enumerate(self):
-            if not Path(output_dir / category).exists():
-                Path(output_dir / category).mkdir(parents=True, exist_ok=True)
-            print(f"-- Saving image {i + 1}/{len(self)}")
-            cv2.imwrite(
-                str(output_dir / category / f"{label}-{i}.{fmt}"),
-                image
-            )
+        if split:
+            for i, (image, label, category, *_) in enumerate(self):
+                (output_dir / 'train' / category).mkdir(parents=True, exist_ok=True)
+                (output_dir / 'val' / category).mkdir(parents=True, exist_ok=True)
+                (output_dir / 'test' / category).mkdir(parents=True, exist_ok=True)
+                split_idx = i % len(split_ratio)
+                if split_idx == 0:
+                    split_dir = 'train'
+                elif split_idx == 1:
+                    split_dir = 'val'
+                else:
+                    split_dir = 'test'
+                cv2.imwrite(
+                    str(output_dir / split_dir / category / f'{label}-{i}.{fmt}'),
+                    image
+                )
+        else:
+            for i, (image, label, category, *_) in enumerate(self):
+                if not Path(output_dir / category).exists():
+                    Path(output_dir / category).mkdir(parents=True, exist_ok=True)
+                cv2.imwrite(
+                    str(output_dir / category / f"{label}-{i}.{fmt}"),
+                    image
+                )
 
     def load_images(self, root: str, limit: int = 0):
         categories = [f.name for f in Path(root).iterdir() if f.is_dir()]

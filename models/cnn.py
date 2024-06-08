@@ -228,7 +228,7 @@ class ConvolutionNeuralNetworkClassifierBackend(ClassifierBackend):
                 print(f"==>> Validation Loss = {val_loss / len(val_data_loader):.4f}")
                 print(f">> Validation Metrics:")
                 print(f"{'Accuracy'.ljust(len('Precision'))} = {val_accuracy:.2f}%")
-                print(f"Precision \t= {val_precision:.2f}")
+                print(f"Precision = {val_precision:.2f}")
                 print(f"{f'Recall'.ljust(len('Precision'))} = {val_recall:.2f}")
                 print(f"{f'F1 Score'.ljust(len('Precision'))} = {val_f1:.2f}")
                 print("-" * 50)
@@ -244,14 +244,16 @@ class ConvolutionNeuralNetworkClassifierBackend(ClassifierBackend):
 
             if self.__early_stopping and self.__check_early_stopping():
                 print(f"Early stopping at epoch {epoch + 1}...")
+                print(f"Training finished! Best accuracy: {self._best_accuracy:.2f}%")
                 self.__save_model(f"final_e{epoch + 1}")
-                break
+                self.__plot_metrics()
+                return
 
             if (epoch + 1) % self.ckpt_interval == 0:
                 self.__save_model(f"e{epoch + 1}")
 
         print(f"Training finished! Best accuracy: {self._best_accuracy:.2f}%")
-        self.__save_model(f"final_e{self.epochs}")
+        self.__save_model(f"final")
         self.__plot_metrics()
 
     def __check_early_stopping(self) -> bool:
@@ -326,6 +328,7 @@ class ConvolutionNeuralNetworkClassifierBackend(ClassifierBackend):
         print(f"> {'Input size:'.ljust(len('Number of classes:'))} {self.input_size}")
         print(f"> {'Batch size:'.ljust(len('Number of classes:'))} {batch_size}")
         print("-" * 50)
+        self.init_model(num_classes=len(test_data.categories))
         with torch.no_grad():
             self.model.eval()
             test_loss = 0.0
@@ -344,6 +347,13 @@ class ConvolutionNeuralNetworkClassifierBackend(ClassifierBackend):
             test_precision = precision_score(test_y_true, test_y_pred, average='macro')
             test_recall = recall_score(test_y_true, test_y_pred, average='macro')
             test_f1 = f1_score(test_y_true, test_y_pred, average='macro')
+            print(f">> Test Loss = {test_loss / len(test_data_loader):.4f}")
+            print(f">> Test Metrics:")
+            print(f"{'Accuracy'.ljust(len('Precision'))} = {test_accuracy:.2f}%")
+            print(f"Precision = {test_precision:.2f}")
+            print(f"{f'Recall'.ljust(len('Precision'))} = {test_recall:.2f}")
+            print(f"{f'F1 Score'.ljust(len('Precision'))} = {test_f1:.2f}")
+            print("-" * 50)
             return pd.DataFrame(
                 columns=['Test Loss', 'confusion_matrix', 'Accuracy', 'Precision', 'Recall', 'F1 Score'],
                 data=[[
@@ -361,11 +371,12 @@ class ConvolutionNeuralNetworkClassifierBackend(ClassifierBackend):
             ex,
             str(self.save_dir / f"{prefix}_{self.model_name}.onnx")
         ) if self.__save_onnx else None
+
         torch.jit.save(
-            self.model,
+            torch.jit.trace(self.model, torch.randn(1, 3, *self.input_size).to(self.device)),
             str(self.save_dir / f"{prefix}_{self.model_name}.torchscript")
         ) if self.__save_jit else None
-        print(f"Model saved to {self.save_dir}")
+        print(f"* Model saved to {self.save_dir}\n" + "-" * 50)
 
     def __train_interrupt_handler(self, _, __):
         warnings.warn("Model training interrupted! Saving model...")

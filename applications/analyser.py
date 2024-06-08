@@ -300,14 +300,14 @@ if __name__ == "__main__":
     from sklearn.svm import SVC
     from torchvision import transforms
 
+    # Configuration
     DATASET_DIR = "data/augmented"
     ESTIMATORS = {
         'SVM: Linear, C=1.0':              SVC(kernel='linear', C=1.0),
         'Random Forest: n_estimators=100': RandomForestClassifier(n_estimators=100),
     }
-
-    MODEL_NAME = "resnet18"
-    WEIGHT = 'output/resnet18/best_resnet18.pth'
+    RESNET_18 = "resnet18"
+    WEIGHT = 'output/resnet18-2/best_resnet18.pth'
     NUM_CLASSES = 13
     TRANSFORMS = transforms.Compose(
         [
@@ -317,25 +317,27 @@ if __name__ == "__main__":
         ]
     )
 
+    # LBP
+    dataset = LocalBinaryPatternsImageClassificationDataset()
+    dataset.load_images(root=DATASET_DIR)
+    lbp = LocalBinaryPatternsClassifierBackend(
+        estimators=ESTIMATORS
+    )
+    lbp.train(dataset)
+
+    # ResNet-18
+    resnet18 = ConvolutionNeuralNetworkClassifierBackend(
+        weight_path=WEIGHT, model_name=RESNET_18
+    )
+    resnet18.init_model(num_classes=NUM_CLASSES)
+
     try:
-        dataset = LocalBinaryPatternsImageClassificationDataset()
-        dataset.load_images(root=DATASET_DIR)
-        lbp_classifier = LocalBinaryPatternsClassifierBackend(
-            estimators=ESTIMATORS
-        )
-        lbp_classifier.train(dataset)
-
-        cnn_classifier = ConvolutionNeuralNetworkClassifierBackend(
-            weight_path=WEIGHT, model_name=MODEL_NAME
-        )
-        cnn_classifier.init_model(num_classes=NUM_CLASSES)
-
         app = QApplication(sys.argv)
         window = AnalyserApp(
             dataset.categories, (dataset.lbp_images[0].shape[0], dataset.lbp_images[0].shape[1])
         )
-        window.register_lbp_estimator("LBP", lbp_classifier)
-        window.register_cnn_estimator("ResNet-18", cnn_classifier, TRANSFORMS)
+        window.register_lbp_estimator("LBP", lbp)
+        window.register_cnn_estimator("ResNet-18", resnet18, TRANSFORMS)
         window.show()
         app.exec_()
     except Exception as e:

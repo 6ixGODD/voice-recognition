@@ -1,47 +1,47 @@
-import librosa
-import matplotlib.pyplot as plt
-import numpy as np
-from pydub import AudioSegment
+import librosa as _lb
+import matplotlib.pyplot as _plt
+import numpy as _np
+from pydub import AudioSegment as _AudioSegment
 
 
-def transform_audio(audio_path: str, output_path: str, fmt: str = "m4a"):
-    audio = AudioSegment.from_file(audio_path)
+def transform_audio(audio_path: str, output_path: str, fmt: str = "wav"):
+    audio = _AudioSegment.from_file(audio_path)
     audio.export(output_path, format=fmt)
 
 
 def plot_wave(audio_path: str, save_path: str, figsize=(2.56, 2.56), dpi=300):
-    audio = AudioSegment.from_file(audio_path)
-    plt.figure(figsize=figsize, dpi=dpi)
-    plt.plot(audio.get_array_of_samples(), color='black')
-    plt.xticks([])
-    plt.yticks([])
-    plt.gca().xaxis.set_major_locator(plt.NullLocator())
-    plt.gca().yaxis.set_major_locator(plt.NullLocator())
-    plt.subplots_adjust(top=1, bottom=0, right=1, left=0, hspace=0, wspace=0)
-    plt.margins(0, 0)
-    plt.gca().xaxis.set_major_locator(plt.NullLocator())
-    plt.gca().yaxis.set_major_locator(plt.NullLocator())
-    plt.axis('off')
+    audio = _AudioSegment.from_file(audio_path)
+    _plt.figure(figsize=figsize, dpi=dpi)
+    _plt.plot(audio.get_array_of_samples(), color='black')
+    _plt.xticks([])
+    _plt.yticks([])
+    _plt.gca().xaxis.set_major_locator(_plt.NullLocator())
+    _plt.gca().yaxis.set_major_locator(_plt.NullLocator())
+    _plt.subplots_adjust(top=1, bottom=0, right=1, left=0, hspace=0, wspace=0)
+    _plt.margins(0, 0)
+    _plt.gca().xaxis.set_major_locator(_plt.NullLocator())
+    _plt.gca().yaxis.set_major_locator(_plt.NullLocator())
+    _plt.axis('off')
 
     # Save the plot
-    plt.savefig(save_path)
-    plt.close()
+    _plt.savefig(save_path)
+    _plt.close()
 
 
 def plot_spectrogram(audio: str, output_path: str):
-    y, sr = librosa.load(audio)
-    D = librosa.stft(y)
-    D_db = librosa.amplitude_to_db(abs(D), ref=np.max)
-    plt.figure(figsize=(6.4, 6.4), dpi=300)
-    librosa.display.specshow(D_db, sr=sr, x_axis='time', y_axis='log')
-    plt.xticks([])
-    plt.yticks([])
-    plt.gca().xaxis.set_major_locator(plt.NullLocator())
-    plt.gca().yaxis.set_major_locator(plt.NullLocator())
-    plt.subplots_adjust(top=1, bottom=0, right=1, left=0, hspace=0, wspace=0)
-    plt.margins(0, 0)
-    plt.gca().xaxis.set_major_locator(plt.NullLocator())
-    plt.gca().yaxis.set_major_locator(plt.NullLocator())
-    plt.axis('off')
-    plt.savefig(output_path)
-    plt.close()
+    y, sr = _lb.load(audio)
+    D = _lb.stft(y)
+    D_db = _lb.amplitude_to_db(abs(D), ref=_np.max)
+    _plt.figure(figsize=(6.4, 6.4), dpi=300)
+    _lb.display.specshow(D_db, sr=sr, x_axis='time', y_axis='log')
+    _plt.xticks([])
+    _plt.yticks([])
+    _plt.gca().xaxis.set_major_locator(_plt.NullLocator())
+    _plt.gca().yaxis.set_major_locator(_plt.NullLocator())
+    _plt.subplots_adjust(top=1, bottom=0, right=1, left=0, hspace=0, wspace=0)
+    _plt.margins(0, 0)
+    _plt.gca().xaxis.set_major_locator(_plt.NullLocator())
+    _plt.gca().yaxis.set_major_locator(_plt.NullLocator())
+    _plt.axis('off')
+    _plt.savefig(output_path)
+    _plt.close()
