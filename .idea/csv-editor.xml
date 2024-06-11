@@ -10,13 +10,6 @@
             </Attribute>
           </value>
         </entry>
-        <entry key="\output\cnn-metrics-3\metrics.csv">
-          <value>
-            <Attribute>
-              <option name="separator" value="," />
-            </Attribute>
-          </value>
-        </entry>
       </map>
     </option>
   </component>

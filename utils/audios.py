@@ -1,7 +1,15 @@
 import librosa as _lb
 import matplotlib.pyplot as _plt
 import numpy as _np
+from pathlib import Path
 from pydub import AudioSegment as _AudioSegment
+
+
+def combine_audio(audio_dir: str, output_path: str):
+    audio = _AudioSegment.empty()
+    for file in Path(audio_dir).iterdir():
+        audio += _AudioSegment.from_file(str(file))
+    audio.export(output_path, format="wav")
 
 
 def transform_audio(audio_path: str, output_path: str, fmt: str = "wav"):

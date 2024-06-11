@@ -167,7 +167,7 @@ def run(
             not padding_color or all(0 <= i <= 255 for i in padding_color)
     ), 'All values in `padding_color` should be in range [0, 255]'
     assert not split or all(0 <= i <= 1 for i in split_ratio), 'All values in `split_ratio` should be in range [0, 1]'
-    assert not split or sum(split_ratio) == 1, 'Sum of `split_ratio` should be equal to 1'
+    assert not split or sum(split_ratio) == 1.0, f'Sum of `split_ratio` {sum(split_ratio)} should be equal to 1'
     assert 0 < augment_ratio, 'Value of `augment_ratio` should be greater than 0'
     assert not augment or gaussian_noise or mix_patch, 'At least one augmentation method should be enabled'
 
@@ -236,24 +236,23 @@ def run(
         for category in Path(from_audios).iterdir():
             if not category.is_dir():
                 continue
-            for audio in category.iterdir():
+            for i, audio in enumerate(category.iterdir()):
                 if audio.suffix not in ['.wav', '.mp3', '.m4a']:
                     continue
+                print(f"Processing \033[92m{audio}\033[0m")
                 (save_dir / 'audio' / category.name).mkdir(parents=True, exist_ok=True)
-                output_audio = save_dir / 'audio' / category.name / audio.name.replace(audio.suffix, '.wav')
+                output_audio = save_dir / 'audio' / category.name / f'{i}.wav'
                 transform_audio(str(audio), str(output_audio))
                 (save_dir / 'spectrogram' / category.name).mkdir(parents=True, exist_ok=True)
                 plot_spectrogram(
                     str(output_audio), str(
-                        save_dir / 'spectrogram' / category.name /
-                        audio.name.replace(audio.suffix, '.png')
+                        save_dir / 'spectrogram' / category.name / f'{i}.{fmt}'
                     )
                 )
                 (save_dir / 'waveform' / category.name).mkdir(parents=True, exist_ok=True) if save_waveforms else None
                 plot_wave(
                     str(output_audio), str(
-                        save_dir / 'waveform' / category.name /
-                        audio.name.replace(audio.suffix, '.png')
+                        save_dir / 'waveform' / category.name / f'{i}.{fmt}'
                     )
                 ) if save_waveforms else None
 

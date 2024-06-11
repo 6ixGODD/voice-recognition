@@ -3,7 +3,7 @@ from pathlib import Path
 import torch
 import torch.nn as nn
 import torch.optim as optim
-import torchsummary
+# import torchsummary
 from torch.utils.data import DataLoader
 from torchvision import transforms
 from torchvision.models import vit_b_16, ViT_B_16_Weights
@@ -22,7 +22,7 @@ LEARNING_RATE = 0.001
 
 NUM_CLASSES = 13
 
-EPOCHS = 100
+EPOCHS = 1000
 
 transform = transforms.Compose(
     [

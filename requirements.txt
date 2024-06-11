@@ -13,5 +13,5 @@ scipy
 pyqt5
 pyqtgraph
 sounddevice
-transformers
+# transformers
 onnx
